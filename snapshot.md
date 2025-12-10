@@ -14,26 +14,23 @@ Function: load_history()
 Reads ~/.claude/history.jsonl.
 Handles broken lines gracefully.
 Metrics:
-"The Yapping Index": Ratio of user tokens to model tokens (Micromanager vs. Delegator) - Derived from projects/ logs.
-"Bio-Rhythm of Code": Circular 24h heatmap of activity (finding the "Ballmer Peak").
-"Impatience Meter": Average time before Ctrl+C or interrupting the model.
-"The Spiral": Network graph of repetitive command sequences (loops of desperation).
-"Tech Stack Footprint": Icons of languages/tools detected in shell-snapshots.
-"Context Switcher": Number of distinct projects/branches worked on per day.
-"Deep Work Score": Longest continuous session duration from projects/ timestamps.
-"The Graveyard of Good Intentions": Ratio of pending vs completed tasks in todos/.
-"The Pivot": Frequency of changing task descriptions (based on activeForm vs content).
-"Ghost in the Shell": TODOs created but never worked on (0 associated commands in history).
-"Agentic Awareness": Ratio of sidechain events (from agent-*.jsonl) to main thread events.
-"Chaos Monkey Score": Frequency of timeouts/errors in debug/ logs.
-"Plugin Power User": Count of custom skills loaded (parsed from debug logs).
+"The Cost Inferno": Total costUSD burned. (Visualization: Animated fire pile).
+"The A/B Test Subject": Feature flags bucketed into from statsig/.
+"The Recursive Despair Index": Depth of TODOs referencing other TODO files.
+"Context Collapse": Ratio of cache_read vs cache_creation tokens (Goldfish Memory Score).
+"The Rage Quit Index": High input tokens + low output tokens + session termination.
+"Model Promiscuity": Unique models used (Opus vs Sonnet vs Haiku).
+"Directory Depth Demons": Deepest nested cwd analysis.
+"The Tool Roulette": Probability chain of tool usage (Read -> Edit -> Undo loops).
+"The Apology Index": Count of synthetic "I apologize" messages.
+"The Early Adopter": Frequency of version upgrades.
 src/analyzer.py
 Updated Logic:
-Primary Source: ~/.claude/projects/**/*.jsonl (recursive glob).
-Secondary Source: ~/.claude/history.jsonl (for global commands).
-Tertiary Source: ~/.claude/todos/*.json (for intent vs reality analysis).
-Quaternary Source: ~/.claude/debug/*.txt (regex parsing for error keywords).
-Parsing Detail: Distinguish between isSidechain: true (Agent doing work) and false (User chatting).
+Primary Source: ~/.claude/projects/**/*.jsonl (Deep parsing for cost, tools, cache).
+Secondary Source: ~/.claude/statsig/ (Feature flags and stable_id).
+Tertiary Source: ~/.claude/todos/*.json (Recursive dependency checking).
+Quaternary Source: ~/.claude/debug/*.txt (Chaos/Error mining).
+Parsing Detail: Extract costUSD, tool_use.name, cache_creation_input_tokens, isSidechain.
 Schema Handling: JSONL parsing with loose schema validation (skip malformed lines).
 src/generator.py
 Design Philosophy: "Vibecoding" Aesthetic.
@@ -44,19 +41,23 @@ Loading Screen: "Aligning chakras...", "Downloading more RAM...", "Consulting Ka
 templates/wrapped.html
 Frontend Tech: Single-file HTML with embedded Chart.js (or ApexCharts for better neon support).
 Novel Charts:
-"Token Inferno": Animated fire scaling with usage intensity.
-"The Context Dive": Area chart showing directory depth vs. time.
-"Calendar of Chaos": GitHub-style contribution graph but color-coded by "Intensity" (red = errors/debug, green = shipping).
+"The Conversation Graveyard": 3D scatter plot of abandoned sessions (Size=Tokens, Color=Cost).
+"The Cost Inferno": Flame height driven by costUSD. Interactive.
+"Bio-Rhythm Circular Heatmap": 24h/Minute-precision activity map.
+"Context Collapse Area Chart": Cache efficiency over time (Sandwich chart).
+"Dependency Web": Force-directed graph of TODOs and Sidechains.
+"The Tool Chain Sankey": Flow of Tool A -> Tool B (e.g., Read -> Edit -> Error).
 Verification Plan
 Automated Tests
 Data Integrity Tests:
-Verify Context Switcher logic by mocking a sequence of cwd changes.
-Test "The Graveyard" calculation with a known todos fixture.
-Ensure The Yapping Index handles zero-division (e.g., empty sessions).
+Cost Parsing: Verify costUSD aggregation matches sum of sample JSONL.
+Recursion Check: Test "Recursive Despair" with a fixture containing circular TODO references.
+Statsig Logic: Ensure A/B test buckets are correctly extracted from hashed filenames.
+Context Collapse: Validate cache_creation vs read ratio calculation.
 Manual Verification
 Run Script: Execute python main.py.
 "Vibe Check" Protocol:
-Visuals: Does the "Token Inferno" fire animation scale up when you select a "heavy" project?
-Charts: Does "Bio-Rhythm" correctly identify your late-night coding sessions?
-Responsiveness: Does the "Context Dive" chart pinch-to-zoom smoothly?
-Easter Eggs: Does typing ↑↑↓↓←→←→BA actually unlock the "God Mode" stats?
+"The Cost Inferno": Does the fire animation look "expensive"?
+"The Conversation Graveyard": Can you navigate the 3D session plot without lag?
+"Konami Code": Does ↑↑↓↓←→←→BA unlock the "God Mode" (Raw USD costs)?
+Responsiveness: Do the neon charts pinch-to-zoom efficiently?
