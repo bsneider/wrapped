@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Wrapped 2025</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --card-bg: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent-color: #7c4dff; /* Deep Purple */
+            --accent-secondary: #00e5ff; /* Cyan */
+            --fire-color: #ff3d00;
+        }
+        
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Vibecoding mono */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-secondary);
+        }
+
+        .metric-big {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--accent-secondary);
+            text-align: center;
+        }
+        
+        .metric-label {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* Viral Specifics */
+        .fire-container {
+            text-align: center;
+            height: 100px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        .fire-bar {
+            width: 20px;
+            background: linear-gradient(to top, #ff3d00, #ffea00);
+            margin: 0 2px;
+            border-radius: 5px 5px 0 0;
+            animation: burn 0.5s infinite alternate;
+        }
+        
+        @keyframes burn {
+            from { height: 20px; opacity: 0.8; }
+            to { height: 60px; opacity: 1; }
+        }
+
+        .quote {
+            font-style: italic;
+            text-align: center;
+            margin: 40px 0;
+            opacity: 0.7;
+            border-left: 3px solid var(--accent-color);
+            padding-left: 15px;
+            display: inline-block;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>CLAUDE WRAPPED</h1>
+    <div class="subtitle">Your 2025 Vibecoding Review</div>
+
+    <div class="card">
+        <h3>The Cost Inferno</h3>
+        <div class="fire-container">
+            <!-- Animated bars based on cost, just hardcoded visual for now -->
+            <div class="fire-bar" style="animation-duration: 0.4s; height: 40px;"></div>
+            <div class="fire-bar" style="animation-duration: 0.6s; height: 70px;"></div>
+            <div class="fire-bar" style="animation-duration: 0.3s; height: 50px;"></div>
+            <div class="fire-bar" style="animation-duration: 0.5s; height: 80px;"></div>
+            <div class="fire-bar" style="animation-duration: 0.4s; height: 60px;"></div>
+        </div>
+        <div class="metric-big">${{ metrics.total_cost|round(2) }}</div>
+        <div class="metric-label">Total USD Incinerated</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Yapping Index</h3>
+            <div class="metric-big">{{ metrics.yapping_index|round(2) }}</div>
+            <div class="metric-label">Ratio: Your Words / Model Words</div>
+        </div>
+        <div class="card">
+            <h3>Ballmer Peak</h3>
+            <div class="metric-big">{{ metrics.ballmer_peak }}:00</div>
+            <div class="metric-label">Your Most Productive Hour</div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>Bio-Rhythm (Hourly Activity)</h3>
+        <canvas id="activityChart"></canvas>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Agentic Score</h3>
+            <div class="metric-big">{{ (metrics.agentic_score * 100)|round(1) }}%</div>
+            <div class="metric-label">Tasks Delegated to Sidechains</div>
+        </div>
+        <div class="card">
+            <h3>Graveyard Ratio</h3>
+            <div class="metric-big">{{ (metrics.graveyard_ratio * 100)|round(1) }}%</div>
+            <div class="metric-label">TODOs Left Behind</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Chaos Monkey Score</h3>
+        <div class="metric-big">{{ debug.chaos_score }}</div>
+        <div class="metric-label">Total Errors & Timeouts</div>
+    </div>
+
+    <div class="quote">
+        "The neural net is a black box, but your wallet usage is crystal clear." <br>
+        - A. Karpathy (probably)
+    </div>
+    
+    <div style="text-align: center; margin-top: 50px; font-size: 0.8rem; color: #555;">
+        Generated by Antigravity | Local Data Only
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    const hourlyData = {{ hourly_activity }};
+    
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: Array.from({length: 24}, (_, i) => i + ':00'),
+            datasets: [{
+                label: 'Commands Run',
+                data: hourlyData,
+                backgroundColor: 'rgba(124, 77, 255, 0.2)',
+                borderColor: '#7c4dff',
+                borderWidth: 2,
+                pointBackgroundColor: '#00e5ff'
+            }]
+        },
+        options: {
+            scales: {
+                r: {
+                    angleLines: { color: '#333' },
+                    grid: { color: '#333' },
+                    pointLabels: { color: '#888' },
+                    ticks: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
