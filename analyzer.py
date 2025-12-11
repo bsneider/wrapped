@@ -918,7 +918,7 @@ def determine_coding_city(data: 'ClaudeWrappedData') -> tuple[str, str]:
         return "London, UK 🇬🇧", f"Peak at {peak_hour}:00. Steady, professional, getting things done. Classic efficiency."
 
 
-def build_top_projects(project_sessions: dict, limit: int = 10) -> list[dict]:
+def build_top_projects(project_sessions: dict, limit: int = 25) -> list[dict]:
     """Build a list of top projects with detailed stats."""
     project_stats = []
     
@@ -1320,17 +1320,18 @@ def main():
         )
 
         # Add framework detection results to output
-        framework_counts = defaultdict(int)
+        # Count number of PROJECTS using each framework, not keyword occurrences
+        framework_project_counts = defaultdict(int)
         for analysis in analyses:
-            for fw, count in analysis.keyword_matches.items():
-                framework_counts[fw] += count
+            for fw in analysis.keyword_matches.keys():
+                framework_project_counts[fw] += 1  # Count projects, not keyword hits
 
-        output['detected_frameworks'] = dict(framework_counts)
+        output['detected_frameworks'] = dict(framework_project_counts)
         output['top_frameworks'] = sorted(
-            framework_counts.items(),
+            framework_project_counts.items(),
             key=lambda x: x[1],
             reverse=True
-        )[:10]
+        )[:15]
 
         # Smart project groupings
         smart_groups = group_projects_smart(analyses)
@@ -1362,19 +1363,19 @@ def main():
         # Store the full project tech map
         output['project_tech_map'] = project_tech_map
 
-        # Aggregate coding concepts across all projects
-        concept_counts = defaultdict(int)
+        # Aggregate coding concepts - count projects, not keyword occurrences
+        concept_project_counts = defaultdict(int)
         for analysis in analyses:
-            for concept, count in analysis.concept_matches.items():
-                concept_counts[concept] += count
-        output['detected_coding_concepts'] = dict(concept_counts)
+            for concept in analysis.concept_matches.keys():
+                concept_project_counts[concept] += 1  # Count projects, not keyword hits
+        output['detected_coding_concepts'] = dict(concept_project_counts)
         output['top_coding_concepts'] = sorted(
-            concept_counts.items(),
+            concept_project_counts.items(),
             key=lambda x: x[1],
             reverse=True
         )[:15]
 
-        print(f"✅ Found {len(framework_counts)} frameworks, {len(smart_groups)} project groups", file=sys.stderr)
+        print(f"✅ Found {len(framework_project_counts)} frameworks, {len(smart_groups)} project groups", file=sys.stderr)
 
     except ImportError:
         print("⚠️  project_analyzer.py not found, skipping project analysis", file=sys.stderr)
