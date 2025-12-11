@@ -290,6 +290,21 @@ def parse_jsonl_file(filepath: Path) -> list[dict]:
     return messages
 
 
+def detect_agents_only(text: str, stats: 'SessionStats') -> None:
+    """Detect ONLY @agent- mentions in text.
+
+    This is safe to run on tool_result content because @agent- prefix is very specific.
+    """
+    if not text:
+        return
+    agent_pattern = re.compile(r'@(agent-[a-zA-Z][a-zA-Z0-9_-]+)')
+    agents = agent_pattern.findall(text)
+    for agent in agents:
+        # Skip the placeholder "@agent-name" from documentation
+        if agent.lower() != 'agent-name':
+            stats.agents_used.append(agent.lower())
+
+
 def detect_invocations(text: str, stats: 'SessionStats') -> None:
     """Detect agent, skill, and command invocations in user text.
 
@@ -343,11 +358,10 @@ def detect_invocations(text: str, stats: 'SessionStats') -> None:
             # Unknown command but not an API route - might be custom
             stats.commands_used.append(cmd_lower)
 
-    # Detect @agent mentions (e.g., @code-reviewer, @planner)
-    agent_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_-]+)')
-    agents = agent_pattern.findall(text)
-    for agent in agents:
-        stats.agents_used.append(agent.lower())
+    # Detect @agent- mentions ONLY (e.g., @agent-devops-engineer, @agent-frontend-specialist)
+    # Real Claude Code agents use the @agent-name format from ciign/agentic-engineering
+    # Exclude false positives like @babel, @types, @latest, @v3, @alpha (npm scopes/versions)
+    detect_agents_only(text, stats)
 
     # Detect skill references - only match actual skill paths and Skill tool calls
     # Skills are model-invoked via .claude/skills/skill-name paths
@@ -390,8 +404,7 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
         if msg_type == 'user':
             stats.user_messages += 1
 
-            # Detect agent/skill/command invocations from user text ONLY
-            # Skip tool_result content as it contains code with false positives like @babel, @types
+            # Detect agent/skill/command invocations from user text
             user_content = msg.get('message', {})
             if isinstance(user_content, dict):
                 content_blocks = user_content.get('content', [])
@@ -399,10 +412,26 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
                     for block in content_blocks:
                         if isinstance(block, dict):
                             block_type = block.get('type', '')
-                            # Only check text blocks from user input
+                            # Check text blocks from user input (for all invocations)
                             if block_type == 'text':
                                 text = block.get('text', '')
                                 detect_invocations(text, stats)
+                            # Also check tool_result content ONLY for @agent- mentions
+                            # (safe because @agent- prefix is very specific)
+                            elif block_type == 'tool_result':
+                                result_content = block.get('content', '')
+                                # Content can be string or list of dicts
+                                if isinstance(result_content, str):
+                                    if '@agent-' in result_content:
+                                        detect_agents_only(result_content, stats)
+                                elif isinstance(result_content, list):
+                                    for item in result_content:
+                                        if isinstance(item, dict):
+                                            item_text = item.get('text', '')
+                                            if isinstance(item_text, str) and '@agent-' in item_text:
+                                                detect_agents_only(item_text, stats)
+                                        elif isinstance(item, str) and '@agent-' in item:
+                                            detect_agents_only(item, stats)
                 elif isinstance(content_blocks, str):
                     detect_invocations(content_blocks, stats)
             elif isinstance(user_content, str):
@@ -518,30 +547,46 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
             if duration:
                 stats.total_duration_ms += int(duration)
             
-            # Tool usage
+            # Tool usage and content analysis
             content = inner_msg.get('content', [])
             if isinstance(content, list):
                 for block in content:
-                    if isinstance(block, dict) and block.get('type') == 'tool_use':
-                        tool_name = block.get('name', 'unknown')
-                        stats.tools_used.append(tool_name)
-                        tool_sequence.append(tool_name)
-                        tool_input = block.get('input', {})
+                    if isinstance(block, dict):
+                        block_type = block.get('type', '')
 
-                        # Detect Skill tool invocations to track skills used
-                        if tool_name == 'Skill':
-                            skill_name = tool_input.get('skill', '')
-                            if skill_name:
-                                stats.skills_used.append(skill_name.lower())
+                        # Check assistant text blocks for agent mentions
+                        if block_type == 'text':
+                            text = block.get('text', '')
+                            if '@agent-' in text:
+                                detect_agents_only(text, stats)
 
-                        # Detect SlashCommand tool invocations to track commands used
-                        if tool_name == 'SlashCommand':
-                            command = tool_input.get('command', '')
-                            if command and command.startswith('/'):
-                                # Extract command name (e.g., "/gustav:planner" -> "gustav:planner")
-                                cmd_parts = command[1:].split()
-                                if cmd_parts:
-                                    stats.commands_used.append(cmd_parts[0].lower())
+                        # Tool usage tracking
+                        if block_type == 'tool_use':
+                            tool_name = block.get('name', 'unknown')
+                            stats.tools_used.append(tool_name)
+                            tool_sequence.append(tool_name)
+                            tool_input = block.get('input', {})
+
+                            # Check tool_use input for agent mentions (e.g., Task tool prompts)
+                            if isinstance(tool_input, dict):
+                                input_str = json.dumps(tool_input)
+                                if '@agent-' in input_str:
+                                    detect_agents_only(input_str, stats)
+
+                            # Detect Skill tool invocations to track skills used
+                            if tool_name == 'Skill':
+                                skill_name = tool_input.get('skill', '')
+                                if skill_name:
+                                    stats.skills_used.append(skill_name.lower())
+
+                            # Detect SlashCommand tool invocations to track commands used
+                            if tool_name == 'SlashCommand':
+                                command = tool_input.get('command', '')
+                                if command and command.startswith('/'):
+                                    # Extract command name (e.g., "/gustav:planner" -> "gustav:planner")
+                                    cmd_parts = command[1:].split()
+                                    if cmd_parts:
+                                        stats.commands_used.append(cmd_parts[0].lower())
             
             # Error tracking
             if msg.get('isApiErrorMessage') or inner_msg.get('model') == '<synthetic>':

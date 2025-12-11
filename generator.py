@@ -885,7 +885,7 @@ def generate_html(data: dict) -> str:
             height: 250px;
             display: flex;
             align-items: flex-end;
-            justify-content: flex-start;
+            justify-content: center;
             gap: 3px;
             padding: 20px;
             background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.05) 100%);
