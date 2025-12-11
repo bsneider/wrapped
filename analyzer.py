@@ -921,33 +921,61 @@ def determine_coding_city(data: 'ClaudeWrappedData') -> tuple[str, str]:
 def build_top_projects(project_sessions: dict, limit: int = 25) -> list[dict]:
     """Build a list of top projects with detailed stats."""
     project_stats = []
-    
+
     for project_path, sessions in project_sessions.items():
         total_messages = sum(s.message_count for s in sessions)
         total_tokens = sum(s.total_input_tokens + s.total_output_tokens for s in sessions)
         total_cost = sum(s.total_cost_usd for s in sessions)
-        
+        num_sessions = len(sessions)
+
+        # Calculate total time spent (sum of session durations)
+        total_duration_ms = 0
+        for s in sessions:
+            if s.start_time and s.end_time:
+                total_duration_ms += (s.end_time - s.start_time).total_seconds() * 1000
+
         # Get time range
         start_times = [s.start_time for s in sessions if s.start_time]
         end_times = [s.end_time for s in sessions if s.end_time]
-        
+
         first_session = min(start_times).isoformat() if start_times else None
         last_session = max(end_times).isoformat() if end_times else None
-        
+
         project_stats.append({
             'name': get_project_display_name(project_path),
             'full_path': project_path,
-            'sessions': len(sessions),
+            'sessions': num_sessions,
             'messages': total_messages,
             'tokens': total_tokens,
             'cost': total_cost,
+            'duration_ms': total_duration_ms,
             'first_session': first_session,
             'last_session': last_session,
         })
-    
-    # Sort by sessions (most active first)
-    project_stats.sort(key=lambda x: x['sessions'], reverse=True)
-    
+
+    # Calculate weighted engagement score for ranking
+    # Normalize each metric and combine with weights
+    if project_stats:
+        max_sessions = max(p['sessions'] for p in project_stats) or 1
+        max_messages = max(p['messages'] for p in project_stats) or 1
+        max_tokens = max(p['tokens'] for p in project_stats) or 1
+        max_cost = max(p['cost'] for p in project_stats) or 1
+        max_duration = max(p['duration_ms'] for p in project_stats) or 1
+
+        for p in project_stats:
+            # Weighted score: tokens (35%), duration (25%), messages (20%), cost (15%), sessions (5%)
+            # This prioritizes deep engagement over just starting many sessions
+            p['engagement_score'] = (
+                0.35 * (p['tokens'] / max_tokens) +
+                0.25 * (p['duration_ms'] / max_duration) +
+                0.20 * (p['messages'] / max_messages) +
+                0.15 * (p['cost'] / max_cost) +
+                0.05 * (p['sessions'] / max_sessions)
+            )
+
+    # Sort by engagement score (most engaged first)
+    project_stats.sort(key=lambda x: x.get('engagement_score', 0), reverse=True)
+
     return project_stats[:limit]
 
 
