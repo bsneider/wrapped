@@ -1598,7 +1598,40 @@ def generate_html(data: dict) -> str:
             color: rgba(255,255,255,0.6);
             margin-top: 0.25rem;
         }}
-        
+
+        /* Global custom tooltip for title attributes */
+        .custom-tooltip {{
+            position: fixed;
+            background: rgba(10, 10, 20, 0.95);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 8px;
+            padding: 0.6rem 0.9rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.95);
+            max-width: 300px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
+            box-shadow: 0 4px 20px rgba(0, 245, 255, 0.2);
+            line-height: 1.4;
+        }}
+
+        .custom-tooltip.visible {{
+            opacity: 1;
+            visibility: visible;
+        }}
+
+        .custom-tooltip::before {{
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 20px;
+            border: 6px solid transparent;
+            border-top-color: var(--neon-cyan);
+        }}
+
         /* Fire animation for token inferno */
         .fire-container {{
             display: flex;
@@ -2774,6 +2807,60 @@ def generate_html(data: dict) -> str:
                 animate();
             }}, 2600);
         }})();
+
+        // Custom tooltip for all title attributes
+        (function() {{
+            const tooltip = document.createElement('div');
+            tooltip.className = 'custom-tooltip';
+            document.body.appendChild(tooltip);
+
+            let currentTarget = null;
+            let hideTimeout = null;
+
+            document.addEventListener('mouseover', function(e) {{
+                const target = e.target.closest('[title]');
+                if (target && target.getAttribute('title')) {{
+                    clearTimeout(hideTimeout);
+                    const titleText = target.getAttribute('title');
+                    // Store and remove title to prevent native tooltip
+                    target.setAttribute('data-tooltip', titleText);
+                    target.removeAttribute('title');
+
+                    tooltip.textContent = titleText;
+                    tooltip.classList.add('visible');
+
+                    const rect = target.getBoundingClientRect();
+                    let left = rect.left;
+                    let top = rect.top - tooltip.offsetHeight - 10;
+
+                    // Keep tooltip in viewport
+                    if (top < 10) top = rect.bottom + 10;
+                    if (left + tooltip.offsetWidth > window.innerWidth - 10) {{
+                        left = window.innerWidth - tooltip.offsetWidth - 10;
+                    }}
+                    if (left < 10) left = 10;
+
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top = top + 'px';
+                    currentTarget = target;
+                }}
+            }});
+
+            document.addEventListener('mouseout', function(e) {{
+                const target = e.target.closest('[data-tooltip]');
+                if (target) {{
+                    // Restore title attribute
+                    const titleText = target.getAttribute('data-tooltip');
+                    target.setAttribute('title', titleText);
+                    target.removeAttribute('data-tooltip');
+
+                    hideTimeout = setTimeout(() => {{
+                        tooltip.classList.remove('visible');
+                        currentTarget = null;
+                    }}, 100);
+                }}
+            }});
+        }})();
     </script>
 </body>
 </html>'''
@@ -2825,8 +2912,33 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         group_cards = []
         # Prioritize framework and cluster groups
         priority_order = ['cluster:', 'framework:', 'category:']
+
+        # Deduplicate groups by normalizing keys to lowercase
+        # Also dedupe across group types (e.g., cluster:cloudflare vs framework:cloudflare)
+        normalized_groups = {}
+        seen_names = {}  # Track which group names we've seen (regardless of type)
+
+        for key, proj_names in smart_groups.items():
+            norm_key = key.lower()
+            # Extract just the name part (after the colon)
+            if ':' in norm_key:
+                group_type, group_name = norm_key.split(':', 1)
+            else:
+                group_type, group_name = '', norm_key
+
+            # If we've seen this name before, merge into the existing group
+            if group_name in seen_names:
+                existing_key = seen_names[group_name]
+                normalized_groups[existing_key] = list(set(normalized_groups[existing_key] + proj_names))
+            elif norm_key in normalized_groups:
+                # Same full key, merge
+                normalized_groups[norm_key] = list(set(normalized_groups[norm_key] + proj_names))
+            else:
+                normalized_groups[norm_key] = proj_names
+                seen_names[group_name] = norm_key
+
         sorted_groups = sorted(
-            smart_groups.items(),
+            normalized_groups.items(),
             key=lambda x: (
                 next((i for i, p in enumerate(priority_order) if x[0].startswith(p)), len(priority_order)),
                 -len(x[1])
@@ -2893,7 +3005,7 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
 
     # Individual project cards
     cards = []
-    for i, proj in enumerate(projects[:8]):  # Show top 8
+    for i, proj in enumerate(projects[:20]):  # Show top 20
         # Use display_name if available, otherwise name
         name = html.escape(proj.get('display_name', proj.get('name', 'Unknown')))
         sessions = proj.get('sessions', 0)
