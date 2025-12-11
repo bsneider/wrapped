@@ -239,19 +239,20 @@ def decode_project_path(encoded: str) -> str:
     # Remove leading dash and split
     parts = encoded[1:].split('-')
 
-    if len(parts) < 3:
-        return encoded  # Too short, return as-is
-
     # Skip system path prefixes
     start_idx = 0
 
     # Skip 'Users', 'home', 'root'
-    if parts[0].lower() in ('users', 'home', 'root'):
+    if parts and parts[0].lower() in ('users', 'home', 'root'):
         start_idx = 1
 
     # Skip the username (always the next element after Users/home)
     if start_idx < len(parts):
         start_idx += 1
+
+    # Handle case where path is just /Users/username (home directory)
+    if start_idx >= len(parts):
+        return "~"  # Home directory sessions
 
     # Common parent folder names that are likely not part of the project name
     # These are folders that contain multiple projects
@@ -272,7 +273,7 @@ def decode_project_path(encoded: str) -> str:
         project_name = '-'.join(parts[start_idx:])
         return project_name
 
-    return encoded
+    return "~"  # Fallback for paths that are all common folders
 
 
 def get_project_display_name(path: str) -> str:

@@ -189,12 +189,16 @@ FRAMEWORK_KEYWORDS = {
     # Based on 2025 market share: AWS 29%, Azure 22%, GCP 12%
     # =========================================================================
     'aws': [
-        'aws', 'amazon web services', 's3', 'lambda', 'ec2', 'dynamodb',
-        'cloudformation', 'cdk', 'boto3', 'aws-sdk', 'sagemaker', 'bedrock',
-        'aws bedrock', 'elasticache', 'rds', 'aurora', 'athena', 'glue',
-        'sns', 'sqs', 'eventbridge', 'step functions', 'eks', 'ecs', 'fargate',
-        'kinesis', 'redshift', 'secrets manager', 'cognito', 'amplify',
-        'api gateway', 'cloudfront', 'route53', 'elastic beanstalk',
+        # Code-specific patterns (imports, SDK usage)
+        'boto3', 'aws-sdk', '@aws-sdk/', 'import boto3', 'from boto3',
+        'aws_access_key', 'aws_secret_key', 'aws.config', 'aws.s3',
+        'new s3client', 'new dynamodbclient', 's3.putobject', 's3.getobject',
+        'lambda.invoke', 'dynamodb.put', 'dynamodb.get', 'dynamodb.query',
+        # Infrastructure as Code
+        'cloudformation', 'aws cdk', 'from aws_cdk', '@aws-cdk/',
+        'serverless.yml', 'sam template', 'aws::',
+        # Specific service usage patterns
+        'sagemaker', 'aws bedrock', 'bedrock-runtime', 'bedrockruntime',
     ],
     'azure': [
         'azure', 'microsoft azure', 'azure functions', 'azure blob',
@@ -1160,7 +1164,8 @@ FRAMEWORK_KEYWORDS = {
         'rabbitmq', 'amqp', 'pika',
     ],
     'bullmq': [
-        'bullmq', 'bull', 'bull queue',
+        'bullmq', 'bull queue', 'new bull(', 'bull.process', 'bull.add',
+        'from bull', 'require("bull")', "require('bull')",
     ],
     'celery': [
         'celery', 'from celery',
