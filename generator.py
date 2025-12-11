@@ -59,10 +59,22 @@ def format_number(n: int) -> str:
     if n < 1000:
         return str(n)
     if n < 1_000_000:
-        return f"{n/1000:.1f}K"
+        val = n / 1000
+        if val == int(val):
+            return f"{int(val)}K"
+        return f"{val:.1f}K"
     if n < 1_000_000_000:
-        return f"{n/1_000_000:.2f}M"
-    return f"{n/1_000_000_000:.2f}B"
+        val = n / 1_000_000
+        # Show cleaner numbers: 94M not 94.00M, but 94.5M when needed
+        if val == int(val):
+            return f"{int(val)}M"
+        elif val * 10 == int(val * 10):
+            return f"{val:.1f}M"
+        return f"{val:.2f}M"
+    val = n / 1_000_000_000
+    if val == int(val):
+        return f"{int(val)}B"
+    return f"{val:.2f}B"
 
 
 def format_tokens(tokens: int) -> str:
@@ -690,6 +702,68 @@ def generate_html(data: dict) -> str:
             border-radius: 4px;
         }}
         
+        /* Command/Agent/Skill cards */
+        .command-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }}
+        
+        .command-card {{
+            background: rgba(0, 245, 255, 0.05);
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 16px;
+            padding: 1.25rem;
+        }}
+        
+        .command-card-title {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            color: var(--neon-cyan);
+            margin-bottom: 1rem;
+        }}
+        
+        .command-tags {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }}
+        
+        .cmd-tag, .agent-tag, .skill-tag {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }}
+        
+        .cmd-tag {{
+            background: rgba(255, 0, 110, 0.15);
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+        }}
+        
+        .agent-tag {{
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid var(--neon-purple);
+            color: var(--neon-purple);
+        }}
+        
+        .skill-tag {{
+            background: rgba(57, 255, 20, 0.15);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+        }}
+        
+        .cmd-count {{
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.15rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }}
+        
         /* Money section */
         .money-section {{
             text-align: center;
@@ -720,6 +794,197 @@ def generate_html(data: dict) -> str:
         .burrito-equivalent span {{
             color: var(--neon-orange);
             font-weight: 700;
+        }}
+        
+        /* 🌟 MEGA HEATMAP: Year in Code 🌟 */
+        .year-in-code {{
+            overflow: visible;
+        }}
+        
+        .heatmap-controls {{
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }}
+        
+        .heatmap-btn {{
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid var(--neon-purple);
+            color: var(--neon-purple);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }}
+        
+        .heatmap-btn:hover {{
+            background: rgba(139, 92, 246, 0.3);
+        }}
+        
+        .heatmap-btn.active {{
+            background: var(--neon-purple);
+            color: #000;
+        }}
+        
+        .heatmap-legend {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.6);
+        }}
+        
+        .legend-scale {{
+            display: flex;
+            gap: 2px;
+        }}
+        
+        .legend-cell {{
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }}
+        
+        .heatmap-container {{
+            overflow-x: auto;
+            padding: 1rem 0;
+        }}
+        
+        .heatmap-months {{
+            display: flex;
+            margin-left: 40px;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+        }}
+        
+        .heatmap-months span {{
+            flex: 1;
+            min-width: 50px;
+        }}
+        
+        .heatmap-wrapper {{
+            display: flex;
+        }}
+        
+        .heatmap-days {{
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 35px;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.5);
+            padding-right: 5px;
+        }}
+        
+        .heatmap-grid {{
+            display: grid;
+            grid-template-rows: repeat(7, 1fr);
+            grid-auto-flow: column;
+            gap: 3px;
+            flex: 1;
+        }}
+        
+        .heatmap-cell {{
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: rgba(139, 92, 246, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }}
+        
+        .heatmap-cell:hover {{
+            transform: scale(1.4);
+            z-index: 10;
+            box-shadow: 0 0 15px var(--neon-purple);
+        }}
+        
+        .heatmap-cell.l1 {{ background: rgba(139, 92, 246, 0.25); }}
+        .heatmap-cell.l2 {{ background: rgba(139, 92, 246, 0.45); }}
+        .heatmap-cell.l3 {{ background: rgba(139, 92, 246, 0.65); }}
+        .heatmap-cell.l4 {{ background: rgba(139, 92, 246, 0.85); }}
+        .heatmap-cell.l5 {{ background: #8b5cf6; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }}
+        
+        .heatmap-cell.animate {{
+            animation: heatmap-pop 0.3s ease-out;
+        }}
+        
+        @keyframes heatmap-pop {{
+            0% {{ transform: scale(0); opacity: 0; }}
+            70% {{ transform: scale(1.2); }}
+            100% {{ transform: scale(1); opacity: 1; }}
+        }}
+        
+        .heatmap-tooltip {{
+            position: fixed;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid var(--neon-purple);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            max-width: 220px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }}
+        
+        .heatmap-tooltip.visible {{
+            opacity: 1;
+        }}
+        
+        .heatmap-tooltip .tooltip-date {{
+            font-family: 'Orbitron', monospace;
+            color: var(--neon-cyan);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }}
+        
+        .heatmap-tooltip .tooltip-stats {{
+            display: grid;
+            grid-template-columns: auto auto;
+            gap: 0.25rem 0.75rem;
+        }}
+        
+        .heatmap-tooltip .tooltip-label {{
+            color: rgba(255,255,255,0.6);
+        }}
+        
+        .heatmap-tooltip .tooltip-value {{
+            color: var(--neon-pink);
+            font-family: 'JetBrains Mono', monospace;
+        }}
+        
+        .heatmap-stats {{
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }}
+        
+        .heatmap-stat {{
+            text-align: center;
+        }}
+        
+        .heatmap-stat-value {{
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            color: var(--neon-cyan);
+        }}
+        
+        .heatmap-stat-label {{
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 0.25rem;
         }}
         
         /* Fire animation for token inferno */
@@ -1065,6 +1330,53 @@ def generate_html(data: dict) -> str:
             </div>
         </section>
         
+        <!-- 🌟 MEGA CHART: Year in Code Heatmap 🌟 -->
+        <section class="chart-section year-in-code">
+            <div class="chart-title"><span>🔥</span> Your Year in Code</div>
+            <div class="heatmap-controls">
+                <button class="heatmap-btn active" data-metric="sessions">Sessions</button>
+                <button class="heatmap-btn" data-metric="tokens">Tokens</button>
+                <button class="heatmap-btn" data-metric="cost">Cost</button>
+            </div>
+            <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="legend-scale">
+                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.1);"></div>
+                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.3);"></div>
+                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.5);"></div>
+                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.7);"></div>
+                    <div class="legend-cell" style="background: #8b5cf6;"></div>
+                </div>
+                <span>More</span>
+            </div>
+            <div class="heatmap-container">
+                <div class="heatmap-months" id="heatmapMonths"></div>
+                <div class="heatmap-wrapper">
+                    <div class="heatmap-days">
+                        <span>Mon</span>
+                        <span>Wed</span>
+                        <span>Fri</span>
+                    </div>
+                    <div class="heatmap-grid" id="heatmapGrid"></div>
+                </div>
+            </div>
+            <div class="heatmap-tooltip" id="heatmapTooltip"></div>
+            <div class="heatmap-stats" id="heatmapStats">
+                <div class="heatmap-stat">
+                    <div class="heatmap-stat-value" id="statTotalDays">0</div>
+                    <div class="heatmap-stat-label">Active Days</div>
+                </div>
+                <div class="heatmap-stat">
+                    <div class="heatmap-stat-value" id="statBestDay">-</div>
+                    <div class="heatmap-stat-label">Most Productive Day</div>
+                </div>
+                <div class="heatmap-stat">
+                    <div class="heatmap-stat-value" id="statBestMonth">-</div>
+                    <div class="heatmap-stat-label">Best Month</div>
+                </div>
+            </div>
+        </section>
+        
         <!-- The Graveyard -->
         <section class="chart-section">
             <div class="chart-title"><span>🪦</span> The Graveyard of Good Intentions</div>
@@ -1124,6 +1436,14 @@ def generate_html(data: dict) -> str:
             <div class="chart-title"><span>🤖</span> Model Promiscuity</div>
             <div class="tool-belt">
                 {generate_model_tags(model_items)}
+            </div>
+        </section>
+        
+        <!-- Commands, Agents & Skills -->
+        <section class="chart-section">
+            <div class="chart-title"><span>⚡</span> Commands, Agents & Skills</div>
+            <div class="command-grid">
+                {generate_command_cards(data)}
             </div>
         </section>
         
@@ -1303,6 +1623,198 @@ def generate_html(data: dict) -> str:
                 }}
             }}
         }});
+        
+        // 🌟 MEGA HEATMAP: Year in Code 🌟
+        (function() {{
+            const sessionsData = {json.dumps(sessions_by_date)};
+            const tokensData = {json.dumps(data.get('tokens_by_date', {}))};
+            const costData = {json.dumps(data.get('cost_by_date', {}))};
+            
+            const grid = document.getElementById('heatmapGrid');
+            const monthsRow = document.getElementById('heatmapMonths');
+            const tooltip = document.getElementById('heatmapTooltip');
+            const statTotalDays = document.getElementById('statTotalDays');
+            const statBestDay = document.getElementById('statBestDay');
+            const statBestMonth = document.getElementById('statBestMonth');
+            
+            let currentMetric = 'sessions';
+            let cells = [];
+            
+            // Generate 365 days (last year)
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from Sunday
+            
+            // Build months header
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            let lastMonth = -1;
+            let monthHtml = '';
+            
+            // Create all cells for the year
+            const numWeeks = 53;
+            for (let week = 0; week < numWeeks; week++) {{
+                for (let day = 0; day < 7; day++) {{
+                    const cellDate = new Date(startDate);
+                    cellDate.setDate(startDate.getDate() + week * 7 + day);
+                    
+                    if (cellDate > today) continue;
+                    
+                    const dateStr = cellDate.toISOString().split('T')[0];
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    cell.dataset.date = dateStr;
+                    cell.dataset.sessions = sessionsData[dateStr] || 0;
+                    cell.dataset.tokens = tokensData[dateStr] || 0;
+                    cell.dataset.cost = (costData[dateStr] || 0).toFixed(4);
+                    
+                    // Track month for header
+                    if (day === 0 && cellDate.getMonth() !== lastMonth) {{
+                        lastMonth = cellDate.getMonth();
+                        monthHtml += `<span>${{months[lastMonth]}}</span>`;
+                    }}
+                    
+                    // Event listeners
+                    cell.addEventListener('mouseenter', (e) => showTooltip(e, cell));
+                    cell.addEventListener('mouseleave', hideTooltip);
+                    
+                    grid.appendChild(cell);
+                    cells.push(cell);
+                }}
+            }}
+            
+            monthsRow.innerHTML = monthHtml;
+            
+            function getData(metric) {{
+                return metric === 'sessions' ? sessionsData : 
+                       metric === 'tokens' ? tokensData : costData;
+            }}
+            
+            function updateHeatmap(metric) {{
+                const data = getData(metric);
+                const values = Object.values(data).filter(v => v > 0);
+                if (values.length === 0) return;
+                
+                const max = Math.max(...values);
+                const thresholds = [max * 0.2, max * 0.4, max * 0.6, max * 0.8, max];
+                
+                cells.forEach((cell, i) => {{
+                    const dateStr = cell.dataset.date;
+                    const value = metric === 'sessions' ? parseInt(cell.dataset.sessions) :
+                                  metric === 'tokens' ? parseInt(cell.dataset.tokens) :
+                                  parseFloat(cell.dataset.cost);
+                    
+                    // Remove old levels
+                    cell.classList.remove('l1', 'l2', 'l3', 'l4', 'l5', 'animate');
+                    
+                    // Add new level with animation
+                    if (value > 0) {{
+                        let level = 'l1';
+                        if (value >= thresholds[4]) level = 'l5';
+                        else if (value >= thresholds[3]) level = 'l4';
+                        else if (value >= thresholds[2]) level = 'l3';
+                        else if (value >= thresholds[1]) level = 'l2';
+                        
+                        // Staggered animation
+                        setTimeout(() => {{
+                            cell.classList.add(level, 'animate');
+                        }}, i * 2);
+                    }}
+                }});
+                
+                // Update stats
+                updateStats(metric);
+            }}
+            
+            function updateStats(metric) {{
+                const data = getData(metric);
+                const activeDays = Object.keys(data).filter(k => data[k] > 0).length;
+                statTotalDays.textContent = activeDays;
+                
+                // Find best day
+                let bestDay = '';
+                let bestDayValue = 0;
+                for (const [date, value] of Object.entries(data)) {{
+                    if (value > bestDayValue) {{
+                        bestDayValue = value;
+                        bestDay = date;
+                    }}
+                }}
+                if (bestDay) {{
+                    const d = new Date(bestDay);
+                    statBestDay.textContent = d.toLocaleDateString('en-US', {{ month: 'short', day: 'numeric' }});
+                }}
+                
+                // Find best month
+                const monthTotals = {{}};
+                for (const [date, value] of Object.entries(data)) {{
+                    const month = date.substring(0, 7);
+                    monthTotals[month] = (monthTotals[month] || 0) + value;
+                }}
+                let bestMonth = '';
+                let bestMonthValue = 0;
+                for (const [month, value] of Object.entries(monthTotals)) {{
+                    if (value > bestMonthValue) {{
+                        bestMonthValue = value;
+                        bestMonth = month;
+                    }}
+                }}
+                if (bestMonth) {{
+                    const d = new Date(bestMonth + '-01');
+                    statBestMonth.textContent = d.toLocaleDateString('en-US', {{ month: 'long' }});
+                }}
+            }}
+            
+            function formatValue(value, metric) {{
+                if (metric === 'tokens') {{
+                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                    if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                    return value;
+                }}
+                if (metric === 'cost') return '$' + parseFloat(value).toFixed(2);
+                return value;
+            }}
+            
+            function showTooltip(e, cell) {{
+                const date = new Date(cell.dataset.date);
+                const dateStr = date.toLocaleDateString('en-US', {{ 
+                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+                }});
+                
+                tooltip.innerHTML = `
+                    <div class="tooltip-date">${{dateStr}}</div>
+                    <div class="tooltip-stats">
+                        <span class="tooltip-label">Sessions:</span>
+                        <span class="tooltip-value">${{cell.dataset.sessions}}</span>
+                        <span class="tooltip-label">Tokens:</span>
+                        <span class="tooltip-value">${{formatValue(cell.dataset.tokens, 'tokens')}}</span>
+                        <span class="tooltip-label">Cost:</span>
+                        <span class="tooltip-value">${{formatValue(cell.dataset.cost, 'cost')}}</span>
+                    </div>
+                `;
+                
+                tooltip.style.left = e.pageX + 15 + 'px';
+                tooltip.style.top = e.pageY - 10 + 'px';
+                tooltip.classList.add('visible');
+            }}
+            
+            function hideTooltip() {{
+                tooltip.classList.remove('visible');
+            }}
+            
+            // Button handlers
+            document.querySelectorAll('.heatmap-btn').forEach(btn => {{
+                btn.addEventListener('click', () => {{
+                    document.querySelectorAll('.heatmap-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentMetric = btn.dataset.metric;
+                    updateHeatmap(currentMetric);
+                }});
+            }});
+            
+            // Initial render with delay for dramatic effect
+            setTimeout(() => updateHeatmap('sessions'), 2600);
+        }})();
     </script>
 </body>
 </html>'''
@@ -1362,6 +1874,60 @@ def generate_top_projects_html(projects: list) -> str:
         ''')
     
     return '\n'.join(cards)
+
+
+def generate_command_cards(data: dict) -> str:
+    """Generate HTML for commands, agents, and skills used."""
+    
+    top_commands = data.get('top_commands', [])
+    top_agents = data.get('top_agents', [])
+    top_skills = data.get('top_skills', [])
+    
+    sections = []
+    
+    # Commands section
+    if top_commands:
+        cmd_items = ''.join([
+            f'<span class="cmd-tag">/{html.escape(cmd)}<span class="cmd-count">{count}</span></span>'
+            for cmd, count in top_commands[:6]
+        ])
+        sections.append(f'''
+            <div class="command-card">
+                <div class="command-card-title">📋 Slash Commands</div>
+                <div class="command-tags">{cmd_items}</div>
+            </div>
+        ''')
+    
+    # Agents section
+    if top_agents:
+        agent_items = ''.join([
+            f'<span class="agent-tag">@{html.escape(agent)}<span class="cmd-count">{count}</span></span>'
+            for agent, count in top_agents[:6]
+        ])
+        sections.append(f'''
+            <div class="command-card">
+                <div class="command-card-title">🤖 Agents Used</div>
+                <div class="command-tags">{agent_items}</div>
+            </div>
+        ''')
+    
+    # Skills section
+    if top_skills:
+        skill_items = ''.join([
+            f'<span class="skill-tag">{html.escape(skill)}<span class="cmd-count">{count}</span></span>'
+            for skill, count in top_skills[:6]
+        ])
+        sections.append(f'''
+            <div class="command-card">
+                <div class="command-card-title">✨ Skills Activated</div>
+                <div class="command-tags">{skill_items}</div>
+            </div>
+        ''')
+    
+    if not sections:
+        return '<p style="text-align: center; color: rgba(255,255,255,0.5);">No commands, agents, or skills detected yet. Start using /commands and @agents!</p>'
+    
+    return '\n'.join(sections)
 
 
 def main():

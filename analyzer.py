@@ -39,6 +39,10 @@ class SessionStats:
     summary_count: int = 0
     error_count: int = 0
     cwd_changes: list = field(default_factory=list)
+    # New: Agent/skill/command tracking
+    agents_used: list = field(default_factory=list)
+    skills_used: list = field(default_factory=list)
+    commands_used: list = field(default_factory=list)
 
 
 @dataclass 
@@ -129,6 +133,14 @@ class ClaudeWrappedData:
     feature_flags_exposed: int = 0
     experiments_participated: int = 0
     
+    # Agent/Skill/Command usage
+    agent_frequency: dict = field(default_factory=lambda: defaultdict(int))
+    skill_frequency: dict = field(default_factory=lambda: defaultdict(int))
+    command_frequency: dict = field(default_factory=lambda: defaultdict(int))
+    top_agents: list = field(default_factory=list)
+    top_skills: list = field(default_factory=list)
+    top_commands: list = field(default_factory=list)
+    
     # Time extremes
     earliest_timestamp: Optional[str] = None
     latest_timestamp: Optional[str] = None
@@ -177,33 +189,62 @@ def parse_timestamp(ts_str: str) -> Optional[datetime]:
 def decode_project_path(encoded: str) -> str:
     """Decode the encoded project path from directory name.
     
-    Handles various encoding conventions:
-    - Standard: -Users-foo-bar becomes /Users/foo/bar
-    - Worktrees: May have special suffixes or patterns
+    Pattern: -Users-username-folder-project-name becomes project-name
+    
+    The encoding replaces / with - but project names can also have dashes.
+    We assume: /Users/username/[maybe-one-folder]/project-name-with-dashes
+    
+    Strategy:
+    1. Remove leading dash
+    2. Skip 'Users' or 'home' 
+    3. Skip the username (next segment)
+    4. Skip common parent folders (optional)
+    5. Rejoin everything else with dashes (this is the project name)
     """
     if not encoded:
         return encoded
     
-    # Standard encoding: leading dash with dashes for slashes
-    if encoded.startswith('-'):
-        decoded = encoded.replace('-', '/')
-        
-        # Extract just the project name for cleaner display
-        # /Users/foo/projects/my-project -> my-project
-        parts = decoded.rstrip('/').split('/')
-        if parts:
-            # Return last non-empty part as project name
-            for part in reversed(parts):
-                if part and part not in ('Users', 'home', 'root'):
-                    return part
-        return decoded
-    
-    # Handle worktree patterns (e.g., project-worktree-feature-branch)
-    # These may have multiple segments
+    # Handle worktree patterns first (e.g., project-worktree-feature-branch)
     if '-worktree-' in encoded.lower():
-        # Extract base project name before worktree suffix
         parts = encoded.split('-worktree-')
-        return parts[0] if parts else encoded
+        encoded = parts[0]  # Process the base part
+    
+    # Standard encoding: leading dash with dashes for slashes
+    if not encoded.startswith('-'):
+        return encoded
+    
+    # Remove leading dash and split
+    parts = encoded[1:].split('-')
+    
+    if len(parts) < 3:
+        return encoded  # Too short, return as-is
+    
+    # Skip system path prefixes
+    start_idx = 0
+    
+    # Skip 'Users', 'home', 'root'
+    if parts[0].lower() in ('users', 'home', 'root'):
+        start_idx = 1
+    
+    # Skip the username (always the next element after Users/home)
+    if start_idx < len(parts):
+        start_idx += 1
+    
+    # Common parent folder names that are likely not part of the project name
+    common_folders = {
+        'projects', 'repos', 'code', 'src', 'dev', 'development', 
+        'work', 'workspace', 'github', 'gitlab', 'bitbucket',
+        'documents', 'desktop', 'downloads', 'go', 'rust', 'python'
+    }
+    
+    # Skip ONE common folder if present (e.g., 'projects', 'repos')
+    if start_idx < len(parts) and parts[start_idx].lower() in common_folders:
+        start_idx += 1
+    
+    # Everything remaining is the project name (rejoined with dashes)
+    if start_idx < len(parts):
+        project_name = '-'.join(parts[start_idx:])
+        return project_name
     
     return encoded
 
@@ -213,11 +254,16 @@ def get_project_display_name(path: str) -> str:
     if not path:
         return "Unknown"
     
-    # If it's already decoded, extract the last meaningful part
+    # If it looks like an already-decoded name (no leading dash, has dashes)
+    if not path.startswith('-') and not path.startswith('/'):
+        return path
+    
+    # If it's a full path with slashes
     if '/' in path:
         parts = path.rstrip('/').split('/')
+        # Return last non-empty meaningful part
         for part in reversed(parts):
-            if part and part not in ('Users', 'home', 'root', 'projects', 'repos', 'code', 'src'):
+            if part and part.lower() not in ('users', 'home', 'root', 'projects', 'repos', 'code', 'src'):
                 return part
         return parts[-1] if parts else path
     
@@ -244,6 +290,45 @@ def parse_jsonl_file(filepath: Path) -> list[dict]:
     return messages
 
 
+def detect_invocations(text: str, stats: 'SessionStats') -> None:
+    """Detect agent, skill, and command invocations in user text.
+    
+    Patterns to detect:
+    - Commands: /command-name or /command (slash commands)
+    - Agents: @agent-name or mentions of 'agent:' 
+    - Skills: References to skills in .claude/skills/ or explicit 'skill:' mentions
+    """
+    if not text:
+        return
+    
+    # Detect slash commands (e.g., /help, /compact, /doctor, /init)
+    command_pattern = re.compile(r'(?:^|\s)/([a-zA-Z][a-zA-Z0-9_-]*)')
+    commands = command_pattern.findall(text)
+    for cmd in commands:
+        # Skip very common false positives
+        if cmd.lower() not in ('users', 'home', 'var', 'etc', 'usr', 'tmp', 'bin'):
+            stats.commands_used.append(cmd.lower())
+    
+    # Detect @agent mentions (e.g., @code-reviewer, @planner)
+    agent_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_-]*)')
+    agents = agent_pattern.findall(text)
+    for agent in agents:
+        stats.agents_used.append(agent.lower())
+    
+    # Detect skill references
+    # Look for patterns like "use the X skill" or "skill: X" or "using X skill"
+    skill_patterns = [
+        re.compile(r'skill[:\s]+([a-zA-Z][a-zA-Z0-9_-]*)', re.IGNORECASE),
+        re.compile(r'use\s+(?:the\s+)?([a-zA-Z][a-zA-Z0-9_-]*)\s+skill', re.IGNORECASE),
+        re.compile(r'using\s+(?:the\s+)?([a-zA-Z][a-zA-Z0-9_-]*)\s+skill', re.IGNORECASE),
+        re.compile(r'\.claude/skills/([a-zA-Z][a-zA-Z0-9_-]*)'),
+    ]
+    for pattern in skill_patterns:
+        skills = pattern.findall(text)
+        for skill in skills:
+            stats.skills_used.append(skill.lower())
+
+
 def analyze_session(messages: list[dict], session_id: str, project_path: str) -> SessionStats:
     """Analyze a single session's messages."""
     stats = SessionStats(session_id=session_id, project_path=project_path)
@@ -265,6 +350,20 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
         
         if msg_type == 'user':
             stats.user_messages += 1
+            
+            # Detect agent/skill/command invocations from user text
+            user_content = msg.get('message', {})
+            if isinstance(user_content, dict):
+                content_blocks = user_content.get('content', [])
+                if isinstance(content_blocks, list):
+                    for block in content_blocks:
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            text = block.get('text', '')
+                            detect_invocations(text, stats)
+                elif isinstance(content_blocks, str):
+                    detect_invocations(content_blocks, stats)
+            elif isinstance(user_content, str):
+                detect_invocations(user_content, stats)
         elif msg_type == 'assistant':
             stats.assistant_messages += 1
             
@@ -601,11 +700,26 @@ def determine_coding_city(data: 'ClaudeWrappedData') -> tuple[str, str]:
     hour_dist = data.hourly_distribution
     total_activity = sum(hour_dist.values()) if hour_dist else 1
     
-    # Time patterns
-    night_pct = (sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(22, 24)) + 
-                sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(0, 5))) / max(total_activity, 1)
+    # Find peak hour
+    peak_hour = 12  # default
+    if hour_dist:
+        peak_hour = max(hour_dist.keys(), key=lambda h: hour_dist.get(h, hour_dist.get(str(h), 0)))
+        if isinstance(peak_hour, str):
+            peak_hour = int(peak_hour)
     
-    morning_pct = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(5, 10)) / max(total_activity, 1)
+    # Time period analysis
+    late_night = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(0, 5))
+    early_morning = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(5, 9))
+    morning = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(9, 12))
+    afternoon = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(12, 17))
+    evening = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(17, 21))
+    night = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(21, 24))
+    
+    # Calculate percentages
+    night_pct = (late_night + night) / max(total_activity, 1)
+    morning_pct = early_morning / max(total_activity, 1)
+    afternoon_pct = afternoon / max(total_activity, 1)
+    evening_pct = evening / max(total_activity, 1)
     
     # Intensity
     sessions_per_project = data.total_sessions / max(data.unique_projects, 1)
@@ -616,25 +730,50 @@ def determine_coding_city(data: 'ClaudeWrappedData') -> tuple[str, str]:
     weekday_activity = sum(weekday_dist.get(d, 0) for d in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
     weekend_ratio = weekend_activity / max(weekday_activity + weekend_activity, 1)
     
-    # Determine city
-    if night_pct > 0.25:
-        return "Tokyo, Japan 🇯🇵", "The city that never sleeps matches your nocturnal coding sessions. Vending machine coffee at 3am vibes."
-    elif morning_pct > 0.25:
-        return "Stockholm, Sweden 🇸🇪", "Early risers unite! Your morning productivity matches Stockholm's fika-fueled work culture."
-    elif weekend_ratio > 0.4:
-        return "Austin, TX 🇺🇸", "You code on weekends like Austin keeps it weird. Work hard, play hard, ship whenever."
-    elif sessions_per_project > 20:
-        return "Berlin, Germany 🇩🇪", "Deep focus, intense sessions. Berlin's techno-fueled all-nighters match your marathon coding."
+    # Determine city based on PRIMARY pattern (most sessions)
+    # First check if they're a true night owl (peak at midnight-5am)
+    if peak_hour >= 0 and peak_hour < 5:
+        return "Tokyo, Japan 🇯🇵", f"Peak coding at {peak_hour}:00 AM! The city that never sleeps matches your true nocturnal nature."
+    
+    # True early bird (peak 5-8am)
+    elif peak_hour >= 5 and peak_hour < 9:
+        return "Stockholm, Sweden 🇸🇪", f"Peak coding at {peak_hour}:00 AM! Early risers unite. Fika-fueled productivity."
+    
+    # Night coder (peak 9pm-midnight) 
+    elif peak_hour >= 21:
+        return "Berlin, Germany 🇩🇪", f"Peak coding at {peak_hour}:00. Evening sessions fuel your creativity, techno-club style."
+    
+    # Weekend warrior
+    elif weekend_ratio > 0.35:
+        return "Austin, TX 🇺🇸", "Weekend coding dominance! Keep Austin weird, ship on Saturday."
+    
+    # Heavy afternoon worker (classic 9-5 extended)
+    elif afternoon_pct > 0.35:
+        return "New York, NY 🇺🇸", f"Peak at {peak_hour}:00. Classic grind hours. Wall Street work ethic, Silicon Alley results."
+    
+    # High project count = startup energy
     elif data.unique_projects > 15:
-        return "San Francisco, CA 🇺🇸", "Startup energy! Multiple projects, constant pivots. You've got that Bay Area hustle."
+        return "San Francisco, CA 🇺🇸", "So many projects! Startup energy. You've got that Bay Area hustle."
+    
+    # Cache efficiency = precision
     elif data.cache_efficiency_ratio > 0.7:
         return "Zurich, Switzerland 🇨🇭", "Precision and efficiency. Your optimized workflows match Swiss engineering excellence."
+    
+    # High spender
     elif data.total_cost_usd > 100:
         return "Singapore 🇸🇬", "High investment, high returns. Your API spend matches Singapore's premium tech scene."
+    
+    # Marathon sessions
     elif data.marathon_sessions > 5:
-        return "Seoul, South Korea 🇰🇷", "Intense gaming-level focus sessions. Your dedication matches Korea's PC bang culture."
+        return "Seoul, South Korea 🇰🇷", "Marathon session master. Your dedication matches Korea's PC bang culture."
+    
+    # Evening coder
+    elif evening_pct > 0.3:
+        return "Tel Aviv, Israel 🇮🇱", f"Peak at {peak_hour}:00. Evening hustle, startup nation energy. Ship it!"
+    
+    # Default
     else:
-        return "London, UK 🇬🇧", "Steady, professional, getting things done. Classic British efficiency."
+        return "London, UK 🇬🇧", f"Peak at {peak_hour}:00. Steady, professional, getting things done. Classic efficiency."
 
 
 def build_top_projects(project_sessions: dict, limit: int = 10) -> list[dict]:
@@ -748,6 +887,14 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
         # Model frequency
         for model in session.models_used:
             data.model_frequency[model] += 1
+        
+        # Agent/Skill/Command frequency
+        for agent in session.agents_used:
+            data.agent_frequency[agent] += 1
+        for skill in session.skills_used:
+            data.skill_frequency[skill] += 1
+        for command in session.commands_used:
+            data.command_frequency[command] += 1
         
         # Session duration
         if session.start_time and session.end_time:
@@ -882,6 +1029,11 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
     
     # Build top projects list
     data.top_projects = build_top_projects(project_sessions)
+    
+    # Build top agents/skills/commands lists
+    data.top_agents = sorted(data.agent_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+    data.top_skills = sorted(data.skill_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+    data.top_commands = sorted(data.command_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
     
     # Analyze todos
     todo_stats = analyze_todos(claude_dir)
