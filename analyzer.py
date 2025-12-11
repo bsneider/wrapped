@@ -292,36 +292,43 @@ def parse_jsonl_file(filepath: Path) -> list[dict]:
 
 def detect_invocations(text: str, stats: 'SessionStats') -> None:
     """Detect agent, skill, and command invocations in user text.
-    
+
     Patterns to detect:
     - Commands: /command-name or /command (slash commands)
-    - Agents: @agent-name or mentions of 'agent:' 
-    - Skills: References to skills in .claude/skills/ or explicit 'skill:' mentions
+    - Agents: @agent-name mentions
+    - Skills: Actual skill folder paths (.claude/skills/skill-name) or Skill tool invocations
     """
     if not text:
         return
-    
+
     # Detect slash commands (e.g., /help, /compact, /doctor, /init)
-    command_pattern = re.compile(r'(?:^|\s)/([a-zA-Z][a-zA-Z0-9_-]*)')
+    # Must be at start of line or after whitespace, not part of a path
+    command_pattern = re.compile(r'(?:^|\s)/([a-zA-Z][a-zA-Z0-9_-]*)(?:\s|$)')
     commands = command_pattern.findall(text)
+    # Common filesystem paths to exclude
+    path_prefixes = {'users', 'home', 'var', 'etc', 'usr', 'tmp', 'bin', 'opt', 'lib', 'dev', 'proc', 'sys', 'run', 'mnt', 'media', 'srv', 'root'}
     for cmd in commands:
-        # Skip very common false positives
-        if cmd.lower() not in ('users', 'home', 'var', 'etc', 'usr', 'tmp', 'bin'):
+        if cmd.lower() not in path_prefixes:
             stats.commands_used.append(cmd.lower())
-    
+
     # Detect @agent mentions (e.g., @code-reviewer, @planner)
-    agent_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_-]*)')
+    agent_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_-]+)')
     agents = agent_pattern.findall(text)
     for agent in agents:
         stats.agents_used.append(agent.lower())
-    
-    # Detect skill references
-    # Look for patterns like "use the X skill" or "skill: X" or "using X skill"
+
+    # Detect skill references - only match actual skill paths and Skill tool calls
+    # Skills are model-invoked via .claude/skills/skill-name paths
     skill_patterns = [
-        re.compile(r'skill[:\s]+([a-zA-Z][a-zA-Z0-9_-]*)', re.IGNORECASE),
-        re.compile(r'use\s+(?:the\s+)?([a-zA-Z][a-zA-Z0-9_-]*)\s+skill', re.IGNORECASE),
-        re.compile(r'using\s+(?:the\s+)?([a-zA-Z][a-zA-Z0-9_-]*)\s+skill', re.IGNORECASE),
-        re.compile(r'\.claude/skills/([a-zA-Z][a-zA-Z0-9_-]*)'),
+        # Match .claude/skills/skill-name (most reliable)
+        re.compile(r'\.claude/skills/([a-zA-Z][a-zA-Z0-9_-]+)'),
+        # Match ~/.claude/skills/skill-name
+        re.compile(r'~/\.claude/skills/([a-zA-Z][a-zA-Z0-9_-]+)'),
+        # Match Skill tool invocation: skill: "skill-name" or skill: 'skill-name'
+        re.compile(r'"skill"\s*:\s*"([a-zA-Z][a-zA-Z0-9_-]+)"'),
+        re.compile(r'"skill"\s*:\s*\'([a-zA-Z][a-zA-Z0-9_-]+)\''),
+        # Match SKILL.md references (skill name is parent folder)
+        re.compile(r'/([a-zA-Z][a-zA-Z0-9_-]+)/SKILL\.md'),
     ]
     for pattern in skill_patterns:
         skills = pattern.findall(text)
@@ -477,6 +484,13 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
                         tool_name = block.get('name', 'unknown')
                         stats.tools_used.append(tool_name)
                         tool_sequence.append(tool_name)
+
+                        # Detect Skill tool invocations to track skills used
+                        if tool_name == 'Skill':
+                            tool_input = block.get('input', {})
+                            skill_name = tool_input.get('skill', '')
+                            if skill_name:
+                                stats.skills_used.append(skill_name.lower())
             
             # Error tracking
             if msg.get('isApiErrorMessage') or inner_msg.get('model') == '<synthetic>':

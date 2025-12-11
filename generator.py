@@ -77,9 +77,23 @@ def format_number(n: int) -> str:
     return f"{val:.2f}B"
 
 
+def format_number_full(n: int) -> str:
+    """Format large numbers with commas for impressive display (e.g., 94,000,000)."""
+    return f"{n:,}"
+
+
 def format_tokens(tokens: int) -> str:
-    """Format token count with K/M/B suffix."""
-    return format_number(tokens)
+    """Format token count with abbreviated display (94M not 94.00M)."""
+    if tokens < 1000:
+        return str(tokens)
+    if tokens < 1_000_000:
+        val = tokens / 1000
+        return f"{int(round(val))}K"
+    if tokens < 1_000_000_000:
+        val = tokens / 1_000_000
+        return f"{int(round(val))}M"
+    val = tokens / 1_000_000_000
+    return f"{int(round(val))}B"
 
 
 def format_cost(cost: float) -> str:
@@ -121,10 +135,12 @@ def get_time_roast(hour_dist: dict) -> tuple[str, str, int]:
     """Analyze time distribution for roasts."""
     if not hour_dist:
         return "Time Traveler", "No timestamps found. Do you even exist?", -1
-    
-    # Find peak hour
+
+    # Find peak hour (keys may be strings from JSON)
     peak_hour = max(hour_dist.items(), key=lambda x: x[1])[0]
-    
+    if isinstance(peak_hour, str):
+        peak_hour = int(peak_hour)
+
     if 0 <= peak_hour <= 4:
         return "The Vampire", f"Peak coding at {peak_hour}:00. Sleep is for the weak, apparently.", peak_hour
     if 5 <= peak_hour <= 8:
@@ -796,18 +812,19 @@ def generate_html(data: dict) -> str:
             font-weight: 700;
         }}
         
-        /* 🌟 MEGA HEATMAP: Year in Code 🌟 */
+        /* 🌟 MEGA VISUALIZATION: Token Skyline + Activity Ring 🌟 */
         .year-in-code {{
             overflow: visible;
+            position: relative;
         }}
-        
+
         .heatmap-controls {{
             display: flex;
             justify-content: center;
             gap: 0.5rem;
             margin-bottom: 1.5rem;
         }}
-        
+
         .heatmap-btn {{
             background: rgba(139, 92, 246, 0.2);
             border: 1px solid var(--neon-purple);
@@ -819,109 +836,186 @@ def generate_html(data: dict) -> str:
             font-size: 0.85rem;
             transition: all 0.2s;
         }}
-        
+
         .heatmap-btn:hover {{
             background: rgba(139, 92, 246, 0.3);
         }}
-        
+
         .heatmap-btn.active {{
             background: var(--neon-purple);
             color: #000;
         }}
-        
-        .heatmap-legend {{
+
+        /* Token Skyline - Futuristic city visualization */
+        .skyline-container {{
+            position: relative;
+            height: 300px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 2px;
+            padding: 20px;
+            background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }}
+
+        .skyline-container::before {{
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), var(--neon-pink), transparent);
+            animation: skyline-glow 3s ease-in-out infinite;
+        }}
+
+        @keyframes skyline-glow {{
+            0%, 100% {{ opacity: 0.5; }}
+            50% {{ opacity: 1; }}
+        }}
+
+        .skyline-bar {{
+            flex: 1;
+            max-width: 12px;
+            min-width: 4px;
+            background: linear-gradient(180deg, var(--neon-cyan) 0%, var(--neon-purple) 50%, var(--neon-pink) 100%);
+            border-radius: 3px 3px 0 0;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: skyline-rise 1s ease-out forwards;
+            transform-origin: bottom;
+            opacity: 0;
+        }}
+
+        .skyline-bar:hover {{
+            filter: brightness(1.4);
+            box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-purple);
+            transform: scaleY(1.05);
+        }}
+
+        .skyline-bar::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }}
+
+        .skyline-bar:hover::before {{
+            opacity: 1;
+        }}
+
+        @keyframes skyline-rise {{
+            0% {{ transform: scaleY(0); opacity: 0; }}
+            100% {{ transform: scaleY(1); opacity: 1; }}
+        }}
+
+        /* Activity Ring - Circular weekly pattern */
+        .activity-ring-section {{
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.6);
+            gap: 3rem;
+            flex-wrap: wrap;
+            margin: 2rem 0;
         }}
-        
-        .legend-scale {{
-            display: flex;
-            gap: 2px;
+
+        .activity-ring-container {{
+            position: relative;
+            width: 280px;
+            height: 280px;
         }}
-        
-        .legend-cell {{
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }}
-        
-        .heatmap-container {{
-            overflow-x: auto;
-            padding: 1rem 0;
-        }}
-        
-        .heatmap-months {{
-            display: flex;
-            margin-left: 40px;
-            margin-bottom: 0.5rem;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.5);
-        }}
-        
-        .heatmap-months span {{
-            flex: 1;
-            min-width: 50px;
-        }}
-        
-        .heatmap-wrapper {{
-            display: flex;
-        }}
-        
-        .heatmap-days {{
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            width: 35px;
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.5);
-            padding-right: 5px;
-        }}
-        
-        .heatmap-grid {{
-            display: grid;
-            grid-template-rows: repeat(7, 1fr);
-            grid-auto-flow: column;
-            gap: 3px;
-            flex: 1;
-        }}
-        
-        .heatmap-cell {{
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-            background: rgba(139, 92, 246, 0.1);
-            cursor: pointer;
-            transition: all 0.2s;
+
+        .activity-ring {{
+            width: 100%;
+            height: 100%;
             position: relative;
         }}
-        
-        .heatmap-cell:hover {{
-            transform: scale(1.4);
-            z-index: 10;
-            box-shadow: 0 0 15px var(--neon-purple);
+
+        .ring-segment {{
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%);
+            transition: all 0.3s;
         }}
-        
-        .heatmap-cell.l1 {{ background: rgba(139, 92, 246, 0.25); }}
-        .heatmap-cell.l2 {{ background: rgba(139, 92, 246, 0.45); }}
-        .heatmap-cell.l3 {{ background: rgba(139, 92, 246, 0.65); }}
-        .heatmap-cell.l4 {{ background: rgba(139, 92, 246, 0.85); }}
-        .heatmap-cell.l5 {{ background: #8b5cf6; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }}
-        
-        .heatmap-cell.animate {{
-            animation: heatmap-pop 0.3s ease-out;
+
+        .ring-center {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: 160px;
+            background: var(--dark-bg);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 2px solid rgba(139, 92, 246, 0.3);
         }}
-        
-        @keyframes heatmap-pop {{
-            0% {{ transform: scale(0); opacity: 0; }}
-            70% {{ transform: scale(1.2); }}
-            100% {{ transform: scale(1); opacity: 1; }}
+
+        .ring-center-value {{
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }}
-        
+
+        .ring-center-label {{
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 0.25rem;
+        }}
+
+        .ring-legend {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }}
+
+        .ring-legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }}
+
+        .ring-legend-color {{
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }}
+
+        .ring-legend-label {{
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.7);
+        }}
+
+        .ring-legend-value {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--neon-cyan);
+            margin-left: auto;
+        }}
+
+        /* Heatmap tooltip */
         .heatmap-tooltip {{
             position: fixed;
             background: rgba(10, 10, 15, 0.95);
@@ -936,33 +1030,34 @@ def generate_html(data: dict) -> str:
             max-width: 220px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }}
-        
+
         .heatmap-tooltip.visible {{
             opacity: 1;
         }}
-        
+
         .heatmap-tooltip .tooltip-date {{
             font-family: 'Orbitron', monospace;
             color: var(--neon-cyan);
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
         }}
-        
+
         .heatmap-tooltip .tooltip-stats {{
             display: grid;
             grid-template-columns: auto auto;
             gap: 0.25rem 0.75rem;
         }}
-        
+
         .heatmap-tooltip .tooltip-label {{
             color: rgba(255,255,255,0.6);
         }}
-        
+
         .heatmap-tooltip .tooltip-value {{
             color: var(--neon-pink);
             font-family: 'JetBrains Mono', monospace;
         }}
-        
+
+        /* Heatmap stats */
         .heatmap-stats {{
             display: flex;
             justify-content: center;
@@ -970,17 +1065,17 @@ def generate_html(data: dict) -> str:
             margin-top: 1.5rem;
             flex-wrap: wrap;
         }}
-        
+
         .heatmap-stat {{
             text-align: center;
         }}
-        
+
         .heatmap-stat-value {{
             font-family: 'Orbitron', monospace;
             font-size: 2rem;
             color: var(--neon-cyan);
         }}
-        
+
         .heatmap-stat-label {{
             font-size: 0.85rem;
             color: rgba(255,255,255,0.6);
@@ -1251,7 +1346,7 @@ def generate_html(data: dict) -> str:
         <section class="chart-section money-section">
             <div class="chart-title"><span>💸</span> The Damage</div>
             <div class="money-value">{cost_formatted}</div>
-            <p class="burrito-equivalent">That's <span>{burritos:.1f} burritos</span> you could have eaten instead.</p>
+            <p class="burrito-equivalent">That's <span>{int(burritos):,} burritos</span> you could have eaten instead.</p>
         </section>
         
         <!-- Verdicts -->
@@ -1330,36 +1425,18 @@ def generate_html(data: dict) -> str:
             </div>
         </section>
         
-        <!-- 🌟 MEGA CHART: Year in Code Heatmap 🌟 -->
+        <!-- 🌟 MEGA CHART: Token Skyline 🌟 -->
         <section class="chart-section year-in-code">
-            <div class="chart-title"><span>🔥</span> Your Year in Code</div>
+            <div class="chart-title"><span>🏙️</span> Token Skyline</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1rem; font-size: 0.9rem;">
+                Each bar is a day of coding. The taller the building, the more intense the session.
+            </p>
             <div class="heatmap-controls">
                 <button class="heatmap-btn active" data-metric="sessions">Sessions</button>
                 <button class="heatmap-btn" data-metric="tokens">Tokens</button>
                 <button class="heatmap-btn" data-metric="cost">Cost</button>
             </div>
-            <div class="heatmap-legend">
-                <span>Less</span>
-                <div class="legend-scale">
-                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.1);"></div>
-                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.3);"></div>
-                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.5);"></div>
-                    <div class="legend-cell" style="background: rgba(139, 92, 246, 0.7);"></div>
-                    <div class="legend-cell" style="background: #8b5cf6;"></div>
-                </div>
-                <span>More</span>
-            </div>
-            <div class="heatmap-container">
-                <div class="heatmap-months" id="heatmapMonths"></div>
-                <div class="heatmap-wrapper">
-                    <div class="heatmap-days">
-                        <span>Mon</span>
-                        <span>Wed</span>
-                        <span>Fri</span>
-                    </div>
-                    <div class="heatmap-grid" id="heatmapGrid"></div>
-                </div>
-            </div>
+            <div class="skyline-container" id="skylineContainer"></div>
             <div class="heatmap-tooltip" id="heatmapTooltip"></div>
             <div class="heatmap-stats" id="heatmapStats">
                 <div class="heatmap-stat">
@@ -1374,6 +1451,19 @@ def generate_html(data: dict) -> str:
                     <div class="heatmap-stat-value" id="statBestMonth">-</div>
                     <div class="heatmap-stat-label">Best Month</div>
                 </div>
+            </div>
+
+            <!-- Activity Ring: Weekly Pattern -->
+            <div class="chart-title" style="margin-top: 3rem;"><span>🎯</span> Weekly Activity Ring</div>
+            <div class="activity-ring-section">
+                <div class="activity-ring-container">
+                    <canvas id="activityRing" width="280" height="280"></canvas>
+                    <div class="ring-center">
+                        <div class="ring-center-value" id="ringTotal">0</div>
+                        <div class="ring-center-label">Total Sessions</div>
+                    </div>
+                </div>
+                <div class="ring-legend" id="ringLegend"></div>
             </div>
         </section>
         
@@ -1624,113 +1714,108 @@ def generate_html(data: dict) -> str:
             }}
         }});
         
-        // 🌟 MEGA HEATMAP: Year in Code 🌟
+        // 🌟 TOKEN SKYLINE + ACTIVITY RING 🌟
         (function() {{
             const sessionsData = {json.dumps(sessions_by_date)};
             const tokensData = {json.dumps(data.get('tokens_by_date', {}))};
             const costData = {json.dumps(data.get('cost_by_date', {}))};
-            
-            const grid = document.getElementById('heatmapGrid');
-            const monthsRow = document.getElementById('heatmapMonths');
+            const weekdayData = {json.dumps(dict(weekday_data))};
+
+            const skylineContainer = document.getElementById('skylineContainer');
             const tooltip = document.getElementById('heatmapTooltip');
             const statTotalDays = document.getElementById('statTotalDays');
             const statBestDay = document.getElementById('statBestDay');
             const statBestMonth = document.getElementById('statBestMonth');
-            
+            const ringCanvas = document.getElementById('activityRing');
+            const ringTotal = document.getElementById('ringTotal');
+            const ringLegend = document.getElementById('ringLegend');
+
             let currentMetric = 'sessions';
-            let cells = [];
-            
-            // Generate 365 days (last year)
-            const today = new Date();
-            const startDate = new Date(today);
-            startDate.setFullYear(startDate.getFullYear() - 1);
-            startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from Sunday
-            
-            // Build months header
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            let lastMonth = -1;
-            let monthHtml = '';
-            
-            // Create all cells for the year
-            const numWeeks = 53;
-            for (let week = 0; week < numWeeks; week++) {{
-                for (let day = 0; day < 7; day++) {{
-                    const cellDate = new Date(startDate);
-                    cellDate.setDate(startDate.getDate() + week * 7 + day);
-                    
-                    if (cellDate > today) continue;
-                    
-                    const dateStr = cellDate.toISOString().split('T')[0];
-                    const cell = document.createElement('div');
-                    cell.className = 'heatmap-cell';
-                    cell.dataset.date = dateStr;
-                    cell.dataset.sessions = sessionsData[dateStr] || 0;
-                    cell.dataset.tokens = tokensData[dateStr] || 0;
-                    cell.dataset.cost = (costData[dateStr] || 0).toFixed(4);
-                    
-                    // Track month for header
-                    if (day === 0 && cellDate.getMonth() !== lastMonth) {{
-                        lastMonth = cellDate.getMonth();
-                        monthHtml += `<span>${{months[lastMonth]}}</span>`;
-                    }}
-                    
-                    // Event listeners
-                    cell.addEventListener('mouseenter', (e) => showTooltip(e, cell));
-                    cell.addEventListener('mouseleave', hideTooltip);
-                    
-                    grid.appendChild(cell);
-                    cells.push(cell);
-                }}
-            }}
-            
-            monthsRow.innerHTML = monthHtml;
-            
+            let bars = [];
+
+            // Collect all dates with data and sort them
+            const allDates = [...new Set([
+                ...Object.keys(sessionsData),
+                ...Object.keys(tokensData),
+                ...Object.keys(costData)
+            ])].filter(d => sessionsData[d] > 0 || tokensData[d] > 0 || costData[d] > 0).sort();
+
             function getData(metric) {{
-                return metric === 'sessions' ? sessionsData : 
+                return metric === 'sessions' ? sessionsData :
                        metric === 'tokens' ? tokensData : costData;
             }}
-            
-            function updateHeatmap(metric) {{
-                const data = getData(metric);
-                const values = Object.values(data).filter(v => v > 0);
-                if (values.length === 0) return;
-                
-                const max = Math.max(...values);
-                const thresholds = [max * 0.2, max * 0.4, max * 0.6, max * 0.8, max];
-                
-                cells.forEach((cell, i) => {{
-                    const dateStr = cell.dataset.date;
-                    const value = metric === 'sessions' ? parseInt(cell.dataset.sessions) :
-                                  metric === 'tokens' ? parseInt(cell.dataset.tokens) :
-                                  parseFloat(cell.dataset.cost);
-                    
-                    // Remove old levels
-                    cell.classList.remove('l1', 'l2', 'l3', 'l4', 'l5', 'animate');
-                    
-                    // Add new level with animation
-                    if (value > 0) {{
-                        let level = 'l1';
-                        if (value >= thresholds[4]) level = 'l5';
-                        else if (value >= thresholds[3]) level = 'l4';
-                        else if (value >= thresholds[2]) level = 'l3';
-                        else if (value >= thresholds[1]) level = 'l2';
-                        
-                        // Staggered animation
-                        setTimeout(() => {{
-                            cell.classList.add(level, 'animate');
-                        }}, i * 2);
-                    }}
+
+            function formatValue(value, metric) {{
+                if (metric === 'tokens') {{
+                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                    if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                    return value;
+                }}
+                if (metric === 'cost') return '$' + parseFloat(value).toFixed(2);
+                return value;
+            }}
+
+            function showTooltip(e, dateStr) {{
+                const date = new Date(dateStr);
+                const formattedDate = date.toLocaleDateString('en-US', {{
+                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
                 }});
-                
+
+                tooltip.innerHTML = `
+                    <div class="tooltip-date">${{formattedDate}}</div>
+                    <div class="tooltip-stats">
+                        <span class="tooltip-label">Sessions:</span>
+                        <span class="tooltip-value">${{sessionsData[dateStr] || 0}}</span>
+                        <span class="tooltip-label">Tokens:</span>
+                        <span class="tooltip-value">${{formatValue(tokensData[dateStr] || 0, 'tokens')}}</span>
+                        <span class="tooltip-label">Cost:</span>
+                        <span class="tooltip-value">${{formatValue(costData[dateStr] || 0, 'cost')}}</span>
+                    </div>
+                `;
+
+                tooltip.style.left = e.pageX + 15 + 'px';
+                tooltip.style.top = e.pageY - 10 + 'px';
+                tooltip.classList.add('visible');
+            }}
+
+            function hideTooltip() {{
+                tooltip.classList.remove('visible');
+            }}
+
+            function buildSkyline(metric) {{
+                skylineContainer.innerHTML = '';
+                bars = [];
+                const data = getData(metric);
+                const values = allDates.map(d => data[d] || 0);
+                const max = Math.max(...values, 1);
+
+                allDates.forEach((dateStr, i) => {{
+                    const value = data[dateStr] || 0;
+                    const height = Math.max(5, (value / max) * 250); // Min height 5px, max 250px
+
+                    const bar = document.createElement('div');
+                    bar.className = 'skyline-bar';
+                    bar.style.height = height + 'px';
+                    bar.style.animationDelay = (i * 30) + 'ms';
+                    bar.dataset.date = dateStr;
+                    bar.dataset.value = value;
+
+                    bar.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
+                    bar.addEventListener('mouseleave', hideTooltip);
+
+                    skylineContainer.appendChild(bar);
+                    bars.push(bar);
+                }});
+
                 // Update stats
                 updateStats(metric);
             }}
-            
+
             function updateStats(metric) {{
                 const data = getData(metric);
                 const activeDays = Object.keys(data).filter(k => data[k] > 0).length;
                 statTotalDays.textContent = activeDays;
-                
+
                 // Find best day
                 let bestDay = '';
                 let bestDayValue = 0;
@@ -1744,7 +1829,7 @@ def generate_html(data: dict) -> str:
                     const d = new Date(bestDay);
                     statBestDay.textContent = d.toLocaleDateString('en-US', {{ month: 'short', day: 'numeric' }});
                 }}
-                
+
                 // Find best month
                 const monthTotals = {{}};
                 for (const [date, value] of Object.entries(data)) {{
@@ -1764,56 +1849,82 @@ def generate_html(data: dict) -> str:
                     statBestMonth.textContent = d.toLocaleDateString('en-US', {{ month: 'long' }});
                 }}
             }}
-            
-            function formatValue(value, metric) {{
-                if (metric === 'tokens') {{
-                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                    if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
-                    return value;
-                }}
-                if (metric === 'cost') return '$' + parseFloat(value).toFixed(2);
-                return value;
-            }}
-            
-            function showTooltip(e, cell) {{
-                const date = new Date(cell.dataset.date);
-                const dateStr = date.toLocaleDateString('en-US', {{ 
-                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+
+            // Activity Ring - Weekly Pattern
+            function drawActivityRing() {{
+                const ctx = ringCanvas.getContext('2d');
+                const centerX = 140;
+                const centerY = 140;
+                const outerRadius = 130;
+                const innerRadius = 85;
+
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const colors = ['#00f5ff', '#00d4e6', '#8b5cf6', '#a78bfa', '#ff006e', '#ff4d8d', '#ff9500'];
+                const values = days.map(d => weekdayData[d] || 0);
+                const total = values.reduce((a, b) => a + b, 0);
+
+                ringTotal.textContent = total;
+
+                ctx.clearRect(0, 0, 280, 280);
+
+                if (total === 0) return;
+
+                let startAngle = -Math.PI / 2; // Start at top
+
+                days.forEach((day, i) => {{
+                    const value = values[i];
+                    if (value === 0) return;
+
+                    const sweepAngle = (value / total) * 2 * Math.PI;
+                    const endAngle = startAngle + sweepAngle;
+
+                    // Draw arc segment
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
+                    ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+                    ctx.closePath();
+
+                    // Gradient fill
+                    const gradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
+                    gradient.addColorStop(0, colors[i] + '80');
+                    gradient.addColorStop(1, colors[i]);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+
+                    // Glow effect
+                    ctx.shadowColor = colors[i];
+                    ctx.shadowBlur = 15;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    startAngle = endAngle;
                 }});
-                
-                tooltip.innerHTML = `
-                    <div class="tooltip-date">${{dateStr}}</div>
-                    <div class="tooltip-stats">
-                        <span class="tooltip-label">Sessions:</span>
-                        <span class="tooltip-value">${{cell.dataset.sessions}}</span>
-                        <span class="tooltip-label">Tokens:</span>
-                        <span class="tooltip-value">${{formatValue(cell.dataset.tokens, 'tokens')}}</span>
-                        <span class="tooltip-label">Cost:</span>
-                        <span class="tooltip-value">${{formatValue(cell.dataset.cost, 'cost')}}</span>
+
+                // Build legend
+                ringLegend.innerHTML = days.map((day, i) => `
+                    <div class="ring-legend-item">
+                        <div class="ring-legend-color" style="background: ${{colors[i]}};"></div>
+                        <span class="ring-legend-label">${{day.slice(0, 3)}}</span>
+                        <span class="ring-legend-value">${{values[i]}}</span>
                     </div>
-                `;
-                
-                tooltip.style.left = e.pageX + 15 + 'px';
-                tooltip.style.top = e.pageY - 10 + 'px';
-                tooltip.classList.add('visible');
+                `).join('');
             }}
-            
-            function hideTooltip() {{
-                tooltip.classList.remove('visible');
-            }}
-            
+
             // Button handlers
             document.querySelectorAll('.heatmap-btn').forEach(btn => {{
                 btn.addEventListener('click', () => {{
                     document.querySelectorAll('.heatmap-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     currentMetric = btn.dataset.metric;
-                    updateHeatmap(currentMetric);
+                    buildSkyline(currentMetric);
                 }});
             }});
-            
+
             // Initial render with delay for dramatic effect
-            setTimeout(() => updateHeatmap('sessions'), 2600);
+            setTimeout(() => {{
+                buildSkyline('sessions');
+                drawActivityRing();
+            }}, 2600);
         }})();
     </script>
 </body>
