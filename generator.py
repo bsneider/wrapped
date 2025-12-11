@@ -847,18 +847,52 @@ def generate_html(data: dict) -> str:
         }}
 
         /* Token Skyline - Futuristic city visualization */
+        .skyline-wrapper {{
+            position: relative;
+        }}
+
+        .skyline-total {{
+            text-align: center;
+            margin-bottom: 1rem;
+        }}
+
+        .skyline-total-value {{
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+
+        .skyline-total-label {{
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+        }}
+
+        .skyline-months {{
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+        }}
+
         .skyline-container {{
             position: relative;
-            height: 300px;
+            height: 250px;
             display: flex;
             align-items: flex-end;
-            justify-content: center;
-            gap: 2px;
+            justify-content: flex-start;
+            gap: 3px;
             padding: 20px;
             background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.05) 100%);
             border-radius: 16px;
-            margin-bottom: 2rem;
-            overflow: hidden;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            overflow-y: hidden;
         }}
 
         .skyline-container::before {{
@@ -878,10 +912,9 @@ def generate_html(data: dict) -> str:
         }}
 
         .skyline-bar {{
-            flex: 1;
-            max-width: 12px;
-            min-width: 4px;
-            background: linear-gradient(180deg, var(--neon-cyan) 0%, var(--neon-purple) 50%, var(--neon-pink) 100%);
+            flex-shrink: 0;
+            width: 10px;
+            min-height: 5px;
             border-radius: 3px 3px 0 0;
             position: relative;
             cursor: pointer;
@@ -891,28 +924,42 @@ def generate_html(data: dict) -> str:
             opacity: 0;
         }}
 
+        /* Different colors for different metrics */
+        .skyline-bar.metric-sessions {{
+            background: linear-gradient(180deg, var(--neon-cyan) 0%, #0891b2 100%);
+        }}
+
+        .skyline-bar.metric-tokens {{
+            background: linear-gradient(180deg, var(--neon-purple) 0%, #7c3aed 100%);
+        }}
+
+        .skyline-bar.metric-cost {{
+            background: linear-gradient(180deg, var(--neon-pink) 0%, #db2777 100%);
+        }}
+
         .skyline-bar:hover {{
             filter: brightness(1.4);
-            box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-purple);
-            transform: scaleY(1.05);
+            box-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+            transform: scaleY(1.1) scaleX(1.5);
+            z-index: 10;
         }}
 
-        .skyline-bar::before {{
-            content: '';
+        .skyline-bar::after {{
+            content: attr(data-label);
             position: absolute;
-            top: 0;
+            bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
-            width: 4px;
-            height: 4px;
-            background: var(--neon-cyan);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--neon-cyan);
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
             opacity: 0;
             transition: opacity 0.2s;
+            pointer-events: none;
+            padding-bottom: 4px;
         }}
 
-        .skyline-bar:hover::before {{
+        .skyline-bar:hover::after {{
             opacity: 1;
         }}
 
@@ -1346,7 +1393,7 @@ def generate_html(data: dict) -> str:
         <section class="chart-section money-section">
             <div class="chart-title"><span>💸</span> The Damage</div>
             <div class="money-value">{cost_formatted}</div>
-            <p class="burrito-equivalent">That's <span>{int(burritos):,} burritos</span> you could have eaten instead.</p>
+            <p class="burrito-equivalent">That's <span>${total_cost:,.2f}</span> worth of burritos (<span>{int(burritos):,}</span> at $12 each).</p>
         </section>
         
         <!-- Verdicts -->
@@ -1427,16 +1474,23 @@ def generate_html(data: dict) -> str:
         
         <!-- 🌟 MEGA CHART: Token Skyline 🌟 -->
         <section class="chart-section year-in-code">
-            <div class="chart-title"><span>🏙️</span> Token Skyline</div>
+            <div class="chart-title"><span>🏙️</span> Your Coding Skyline</div>
             <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1rem; font-size: 0.9rem;">
-                Each bar is a day of coding. The taller the building, the more intense the session.
+                Each bar is a day. Hover for details. Different colors = different metrics.
             </p>
             <div class="heatmap-controls">
-                <button class="heatmap-btn active" data-metric="sessions">Sessions</button>
-                <button class="heatmap-btn" data-metric="tokens">Tokens</button>
-                <button class="heatmap-btn" data-metric="cost">Cost</button>
+                <button class="heatmap-btn active" data-metric="sessions" style="border-color: var(--neon-cyan); color: var(--neon-cyan);">📊 Sessions</button>
+                <button class="heatmap-btn" data-metric="tokens" style="border-color: var(--neon-purple); color: var(--neon-purple);">🔤 Tokens</button>
+                <button class="heatmap-btn" data-metric="cost" style="border-color: var(--neon-pink); color: var(--neon-pink);">💰 Cost</button>
             </div>
-            <div class="skyline-container" id="skylineContainer"></div>
+            <div class="skyline-wrapper">
+                <div class="skyline-total">
+                    <div class="skyline-total-value" id="skylineTotalValue">0</div>
+                    <div class="skyline-total-label" id="skylineTotalLabel">Total Sessions</div>
+                </div>
+                <div class="skyline-months" id="skylineMonths"></div>
+                <div class="skyline-container" id="skylineContainer"></div>
+            </div>
             <div class="heatmap-tooltip" id="heatmapTooltip"></div>
             <div class="heatmap-stats" id="heatmapStats">
                 <div class="heatmap-stat">
@@ -1782,23 +1836,60 @@ def generate_html(data: dict) -> str:
                 tooltip.classList.remove('visible');
             }}
 
+            const skylineTotalValue = document.getElementById('skylineTotalValue');
+            const skylineTotalLabel = document.getElementById('skylineTotalLabel');
+            const skylineMonths = document.getElementById('skylineMonths');
+
             function buildSkyline(metric) {{
                 skylineContainer.innerHTML = '';
                 bars = [];
                 const data = getData(metric);
                 const values = allDates.map(d => data[d] || 0);
                 const max = Math.max(...values, 1);
+                const total = values.reduce((a, b) => a + b, 0);
+
+                // Update total display
+                if (metric === 'sessions') {{
+                    skylineTotalValue.textContent = total.toLocaleString();
+                    skylineTotalLabel.textContent = 'Total Sessions';
+                }} else if (metric === 'tokens') {{
+                    skylineTotalValue.textContent = (total / 1000000).toFixed(1) + 'M';
+                    skylineTotalLabel.textContent = 'Total Tokens';
+                }} else {{
+                    skylineTotalValue.textContent = '$' + total.toFixed(2);
+                    skylineTotalLabel.textContent = 'Total Cost';
+                }}
+
+                // Build month labels
+                const months = {{}};
+                allDates.forEach(d => {{
+                    const m = d.substring(0, 7);
+                    if (!months[m]) months[m] = true;
+                }});
+                skylineMonths.innerHTML = Object.keys(months).map(m => {{
+                    const date = new Date(m + '-01');
+                    return `<span>${{date.toLocaleDateString('en-US', {{ month: 'short' }})}}</span>`;
+                }}).join('');
 
                 allDates.forEach((dateStr, i) => {{
                     const value = data[dateStr] || 0;
-                    const height = Math.max(5, (value / max) * 250); // Min height 5px, max 250px
+                    const height = Math.max(8, (value / max) * 200); // Min height 8px, max 200px
 
                     const bar = document.createElement('div');
-                    bar.className = 'skyline-bar';
+                    bar.className = `skyline-bar metric-${{metric}}`;
                     bar.style.height = height + 'px';
-                    bar.style.animationDelay = (i * 30) + 'ms';
+                    bar.style.animationDelay = (i * 40) + 'ms';
                     bar.dataset.date = dateStr;
                     bar.dataset.value = value;
+
+                    // Add data label for hover
+                    if (metric === 'sessions') {{
+                        bar.dataset.label = value;
+                    }} else if (metric === 'tokens') {{
+                        bar.dataset.label = value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : value >= 1000 ? (value/1000).toFixed(0) + 'K' : value;
+                    }} else {{
+                        bar.dataset.label = '$' + value.toFixed(2);
+                    }}
 
                     bar.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
                     bar.addEventListener('mouseleave', hideTooltip);

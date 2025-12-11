@@ -301,15 +301,47 @@ def detect_invocations(text: str, stats: 'SessionStats') -> None:
     if not text:
         return
 
-    # Detect slash commands (e.g., /help, /compact, /doctor, /init)
-    # Must be at start of line or after whitespace, not part of a path
-    command_pattern = re.compile(r'(?:^|\s)/([a-zA-Z][a-zA-Z0-9_-]*)(?:\s|$)')
+    # Detect slash commands - ONLY real Claude Code commands, not API routes
+    # Real commands are: /help, /compact, /clear, /doctor, /init, /config, /cost, /memory
+    # OR namespaced custom commands like /project:command, /user:command, /gustav:planner
+    # OR SlashCommand tool invocations
+
+    # Known built-in Claude Code commands
+    builtin_commands = {
+        'help', 'compact', 'clear', 'doctor', 'init', 'config', 'cost', 'memory',
+        'model', 'vim', 'terminal-setup', 'logout', 'login', 'permissions',
+        'mcp', 'listen', 'pr-comments', 'review', 'hooks', 'bug', 'rewind',
+        'resume', 'status', 'agents', 'commands', 'add-dir', 'install-github-app'
+    }
+
+    # Common API route patterns to EXCLUDE (false positives)
+    api_routes = {
+        'health', 'api', 'v1', 'v2', 'v3', 'auth', 'login', 'logout', 'users',
+        'user', 'admin', 'app', 'apps', 'data', 'static', 'public', 'private',
+        'context', 'upgrade', 'extra-usage', 'dashboard', 'analytics', 'metrics',
+        'status', 'ping', 'ready', 'live', 'info', 'version', 'docs', 'swagger',
+        'graphql', 'rest', 'callback', 'webhook', 'webhooks', 'events', 'socket',
+        'ws', 'stream', 'upload', 'download', 'file', 'files', 'image', 'images',
+        'asset', 'assets', 'media', 'search', 'query', 'filter', 'sort', 'page',
+        'offer', 'portfolio', 'impact', 'collaboration', 'insights', 'exit',
+        'trends', 'validate', 'stats', 'home', 'index', 'root'
+    }
+
+    # Pattern for commands at start of text (user actually typing a command)
+    command_pattern = re.compile(r'^/([a-zA-Z][a-zA-Z0-9_:-]*)(?:\s|$)', re.MULTILINE)
     commands = command_pattern.findall(text)
-    # Common filesystem paths to exclude
-    path_prefixes = {'users', 'home', 'var', 'etc', 'usr', 'tmp', 'bin', 'opt', 'lib', 'dev', 'proc', 'sys', 'run', 'mnt', 'media', 'srv', 'root'}
+
     for cmd in commands:
-        if cmd.lower() not in path_prefixes:
-            stats.commands_used.append(cmd.lower())
+        cmd_lower = cmd.lower()
+        # Accept if:
+        # 1. It's a known built-in command
+        # 2. It contains ':' (namespaced custom command like /gustav:planner)
+        # 3. It's NOT an API route pattern
+        if cmd_lower in builtin_commands or ':' in cmd_lower:
+            stats.commands_used.append(cmd_lower)
+        elif cmd_lower not in api_routes and len(cmd_lower) > 2:
+            # Unknown command but not an API route - might be custom
+            stats.commands_used.append(cmd_lower)
 
     # Detect @agent mentions (e.g., @code-reviewer, @planner)
     agent_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_-]+)')
@@ -357,20 +389,30 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
         
         if msg_type == 'user':
             stats.user_messages += 1
-            
-            # Detect agent/skill/command invocations from user text
+
+            # Detect agent/skill/command invocations from user text ONLY
+            # Skip tool_result content as it contains code with false positives like @babel, @types
             user_content = msg.get('message', {})
             if isinstance(user_content, dict):
                 content_blocks = user_content.get('content', [])
                 if isinstance(content_blocks, list):
                     for block in content_blocks:
-                        if isinstance(block, dict) and block.get('type') == 'text':
-                            text = block.get('text', '')
-                            detect_invocations(text, stats)
+                        if isinstance(block, dict):
+                            block_type = block.get('type', '')
+                            # Only check text blocks from user input
+                            if block_type == 'text':
+                                text = block.get('text', '')
+                                detect_invocations(text, stats)
                 elif isinstance(content_blocks, str):
                     detect_invocations(content_blocks, stats)
             elif isinstance(user_content, str):
                 detect_invocations(user_content, stats)
+
+        elif msg_type == 'queue-operation':
+            # Queue operations contain agent invocations
+            queue_content = msg.get('content', '')
+            if isinstance(queue_content, str):
+                detect_invocations(queue_content, stats)
         elif msg_type == 'assistant':
             stats.assistant_messages += 1
             
@@ -484,13 +526,22 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
                         tool_name = block.get('name', 'unknown')
                         stats.tools_used.append(tool_name)
                         tool_sequence.append(tool_name)
+                        tool_input = block.get('input', {})
 
                         # Detect Skill tool invocations to track skills used
                         if tool_name == 'Skill':
-                            tool_input = block.get('input', {})
                             skill_name = tool_input.get('skill', '')
                             if skill_name:
                                 stats.skills_used.append(skill_name.lower())
+
+                        # Detect SlashCommand tool invocations to track commands used
+                        if tool_name == 'SlashCommand':
+                            command = tool_input.get('command', '')
+                            if command and command.startswith('/'):
+                                # Extract command name (e.g., "/gustav:planner" -> "gustav:planner")
+                                cmd_parts = command[1:].split()
+                                if cmd_parts:
+                                    stats.commands_used.append(cmd_parts[0].lower())
             
             # Error tracking
             if msg.get('isApiErrorMessage') or inner_msg.get('model') == '<synthetic>':
@@ -868,13 +919,18 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
                 all_sessions.append(session)
                 project_sessions['root'].append(session)
     
-    # Check history.jsonl
+    # Check history.jsonl - has different format with 'display' field
     history_file = claude_dir / 'history.jsonl'
     if history_file.exists():
-        messages = parse_jsonl_file(history_file)
-        if messages:
-            session = analyze_session(messages, 'global-history', 'global')
-            all_sessions.append(session)
+        history_messages = parse_jsonl_file(history_file)
+        # Create a dummy session to aggregate history data
+        history_stats = SessionStats(session_id='global-history', project_path='global')
+        for msg in history_messages:
+            # History entries have 'display' field with user input
+            display_text = msg.get('display', '')
+            if display_text:
+                detect_invocations(display_text, history_stats)
+        all_sessions.append(history_stats)
     
     # Aggregate stats
     data.total_sessions = len(all_sessions)
