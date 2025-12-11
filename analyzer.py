@@ -43,6 +43,8 @@ class SessionStats:
     agents_used: list = field(default_factory=list)
     skills_used: list = field(default_factory=list)
     commands_used: list = field(default_factory=list)
+    # Task subagent types (Explore, Plan, general-purpose, etc.)
+    task_agent_types: list = field(default_factory=list)
 
 
 @dataclass 
@@ -140,6 +142,13 @@ class ClaudeWrappedData:
     top_agents: list = field(default_factory=list)
     top_skills: list = field(default_factory=list)
     top_commands: list = field(default_factory=list)
+
+    # Task subagent types (Explore, Plan, general-purpose, etc.)
+    task_agent_type_frequency: dict = field(default_factory=lambda: defaultdict(int))
+    top_task_agent_types: list = field(default_factory=list)
+
+    # Project groupings by common folder prefix
+    project_groups: dict = field(default_factory=dict)  # {folder: [projects]}
     
     # Time extremes
     earliest_timestamp: Optional[str] = None
@@ -587,6 +596,12 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
                                     cmd_parts = command[1:].split()
                                     if cmd_parts:
                                         stats.commands_used.append(cmd_parts[0].lower())
+
+                            # Detect Task tool invocations to track subagent types
+                            if tool_name == 'Task':
+                                subagent_type = tool_input.get('subagent_type', '')
+                                if subagent_type:
+                                    stats.task_agent_types.append(subagent_type.lower())
             
             # Error tracking
             if msg.get('isApiErrorMessage') or inner_msg.get('model') == '<synthetic>':
@@ -1010,6 +1025,9 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
             data.skill_frequency[skill] += 1
         for command in session.commands_used:
             data.command_frequency[command] += 1
+        # Task agent type frequency
+        for agent_type in session.task_agent_types:
+            data.task_agent_type_frequency[agent_type] += 1
         
         # Session duration
         if session.start_time and session.end_time:
@@ -1149,6 +1167,30 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
     data.top_agents = sorted(data.agent_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
     data.top_skills = sorted(data.skill_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
     data.top_commands = sorted(data.command_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+    data.top_task_agent_types = sorted(data.task_agent_type_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    # Group projects by common folder prefix
+    # Projects with the same first word (folder name) are grouped together
+    folder_projects = defaultdict(list)
+    for proj in data.top_projects:
+        name = proj.get('name', '')
+        # Split on dashes or underscores to find the folder prefix
+        parts = name.replace('_', '-').split('-')
+        if len(parts) > 1:
+            folder = parts[0].lower()
+            # Only group if it's a meaningful folder name (not short/generic)
+            if len(folder) >= 3 and folder not in ('the', 'new', 'my', 'old', 'tmp', 'test'):
+                folder_projects[folder].append(name)
+            else:
+                folder_projects[name.lower()].append(name)
+        else:
+            folder_projects[name.lower()].append(name)
+
+    # Only keep folder groups with more than 1 project
+    data.project_groups = {
+        folder: projects for folder, projects in folder_projects.items()
+        if len(projects) > 1
+    }
     
     # Analyze todos
     todo_stats = analyze_todos(claude_dir)

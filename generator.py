@@ -717,6 +717,54 @@ def generate_html(data: dict) -> str:
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
         }}
+
+        /* Project Groups (related projects with same folder prefix) */
+        .project-groups-section {{
+            margin-bottom: 2rem;
+        }}
+
+        .project-groups-title {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            color: var(--neon-purple);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }}
+
+        .project-groups-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }}
+
+        .project-group-card {{
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(255, 0, 110, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+        }}
+
+        .project-group-header {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            color: var(--neon-purple);
+            margin-bottom: 0.5rem;
+        }}
+
+        .project-group-items {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+            margin-bottom: 0.5rem;
+        }}
+
+        .project-group-count {{
+            font-size: 0.75rem;
+            color: var(--neon-cyan);
+        }}
         
         /* Command/Agent/Skill cards */
         .command-grid {{
@@ -745,7 +793,7 @@ def generate_html(data: dict) -> str:
             gap: 0.5rem;
         }}
         
-        .cmd-tag, .agent-tag, .skill-tag {{
+        .cmd-tag, .agent-tag, .skill-tag, .task-type-tag {{
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
@@ -754,23 +802,29 @@ def generate_html(data: dict) -> str:
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
         }}
-        
+
         .cmd-tag {{
             background: rgba(255, 0, 110, 0.15);
             border: 1px solid var(--neon-pink);
             color: var(--neon-pink);
         }}
-        
+
         .agent-tag {{
             background: rgba(139, 92, 246, 0.15);
             border: 1px solid var(--neon-purple);
             color: var(--neon-purple);
         }}
-        
+
         .skill-tag {{
             background: rgba(57, 255, 20, 0.15);
             border: 1px solid var(--neon-green);
             color: var(--neon-green);
+        }}
+
+        .task-type-tag {{
+            background: rgba(0, 245, 255, 0.15);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
         }}
         
         .cmd-count {{
@@ -1452,7 +1506,7 @@ def generate_html(data: dict) -> str:
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
             <div class="projects-grid">
-                {generate_top_projects_html(top_projects)}
+                {generate_top_projects_html(top_projects, data.get('project_groups', {}))}
             </div>
         </section>
         
@@ -2040,11 +2094,39 @@ def generate_model_tags(model_items: list) -> str:
     return '\n'.join(tags)
 
 
-def generate_top_projects_html(projects: list) -> str:
-    """Generate HTML for top projects section."""
+def generate_top_projects_html(projects: list, project_groups: dict = None) -> str:
+    """Generate HTML for top projects section with optional grouping."""
     if not projects:
         return '<div class="project-card"><div class="project-name">No projects found</div></div>'
-    
+
+    # If we have project groups, show grouped view first
+    grouped_html = ''
+    if project_groups:
+        group_cards = []
+        for folder, proj_names in sorted(project_groups.items(), key=lambda x: -len(x[1])):
+            if len(proj_names) > 1:
+                # Shorten project names by removing the folder prefix
+                short_names = []
+                for pn in proj_names[:4]:  # Show max 4 per group
+                    # Remove the folder prefix from display
+                    short = pn
+                    if pn.lower().startswith(folder):
+                        short = pn[len(folder):].lstrip('-_')
+                        if not short:
+                            short = pn  # Keep original if nothing left
+                    short_names.append(html.escape(short))
+
+                group_cards.append(f'''
+                    <div class="project-group-card">
+                        <div class="project-group-header">📁 {html.escape(folder.title())}</div>
+                        <div class="project-group-items">{' · '.join(short_names)}{' +' + str(len(proj_names)-4) if len(proj_names) > 4 else ''}</div>
+                        <div class="project-group-count">{len(proj_names)} related projects</div>
+                    </div>
+                ''')
+        if group_cards:
+            grouped_html = f'<div class="project-groups-section"><div class="project-groups-title">Project Families</div><div class="project-groups-grid">{"".join(group_cards[:4])}</div></div>'
+
+    # Individual project cards
     cards = []
     for i, proj in enumerate(projects[:8]):  # Show top 8
         name = html.escape(proj.get('name', 'Unknown'))
@@ -2052,7 +2134,7 @@ def generate_top_projects_html(projects: list) -> str:
         messages = proj.get('messages', 0)
         tokens = format_number(proj.get('tokens', 0))
         cost = format_cost(proj.get('cost', 0))
-        
+
         # Rank badge
         if i == 0:
             badge = '🥇'
@@ -2062,7 +2144,7 @@ def generate_top_projects_html(projects: list) -> str:
             badge = '🥉'
         else:
             badge = f'#{i+1}'
-        
+
         cards.append(f'''
             <div class="project-card">
                 <div class="project-rank">{badge}</div>
@@ -2074,19 +2156,20 @@ def generate_top_projects_html(projects: list) -> str:
                 </div>
             </div>
         ''')
-    
-    return '\n'.join(cards)
+
+    return grouped_html + '\n'.join(cards)
 
 
 def generate_command_cards(data: dict) -> str:
     """Generate HTML for commands, agents, and skills used."""
-    
+
     top_commands = data.get('top_commands', [])
     top_agents = data.get('top_agents', [])
     top_skills = data.get('top_skills', [])
-    
+    top_task_agent_types = data.get('top_task_agent_types', [])
+
     sections = []
-    
+
     # Commands section
     if top_commands:
         cmd_items = ''.join([
@@ -2099,7 +2182,7 @@ def generate_command_cards(data: dict) -> str:
                 <div class="command-tags">{cmd_items}</div>
             </div>
         ''')
-    
+
     # Agents section
     if top_agents:
         agent_items = ''.join([
@@ -2112,7 +2195,20 @@ def generate_command_cards(data: dict) -> str:
                 <div class="command-tags">{agent_items}</div>
             </div>
         ''')
-    
+
+    # Task Agent Types section (Explore, Plan, general-purpose, etc.)
+    if top_task_agent_types:
+        type_items = ''.join([
+            f'<span class="task-type-tag">{html.escape(agent_type)}<span class="cmd-count">{count}</span></span>'
+            for agent_type, count in top_task_agent_types[:6]
+        ])
+        sections.append(f'''
+            <div class="command-card">
+                <div class="command-card-title">🚀 Task Subagents</div>
+                <div class="command-tags">{type_items}</div>
+            </div>
+        ''')
+
     # Skills section
     if top_skills:
         skill_items = ''.join([
@@ -2125,10 +2221,10 @@ def generate_command_cards(data: dict) -> str:
                 <div class="command-tags">{skill_items}</div>
             </div>
         ''')
-    
+
     if not sections:
         return '<p style="text-align: center; color: rgba(255,255,255,0.5);">No commands, agents, or skills detected yet. Start using /commands and @agents!</p>'
-    
+
     return '\n'.join(sections)
 
 
