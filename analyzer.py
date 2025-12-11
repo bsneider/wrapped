@@ -575,11 +575,16 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
         data.most_active_project_sessions = len(most_active[1])
         
         # Find abandoned projects (no sessions in last 30 days)
-        thirty_days_ago = datetime.now() - timedelta(days=30)
+        from datetime import timezone
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
         for project, sessions in project_sessions.items():
             latest = max((s.end_time for s in sessions if s.end_time), default=None)
-            if latest and latest < thirty_days_ago:
-                data.abandoned_projects.append(project)
+            if latest:
+                # Make comparison timezone-aware safe
+                if latest.tzinfo is None:
+                    latest = latest.replace(tzinfo=timezone.utc)
+                if latest < thirty_days_ago:
+                    data.abandoned_projects.append(project)
     
     # CWD stats
     cwd_counter = Counter(all_cwds)
