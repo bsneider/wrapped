@@ -139,7 +139,15 @@ Easter Eggs:
             f.write(output)
         if not args.quiet:
             print(f"✨ Report saved to {output_path}", file=sys.stderr)
-        
+
+        # Also copy to opus45.html in the project directory
+        if not args.json:
+            opus45_path = Path(__file__).parent / 'opus45.html'
+            with open(opus45_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+            if not args.quiet:
+                print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
+
         # Open in browser unless --no-open is specified
         if not args.json and not args.no_open:
             import webbrowser
@@ -149,6 +157,12 @@ Easter Eggs:
             webbrowser.open(file_url)
     else:
         print(output)
+        # Also copy to opus45.html in the project directory when outputting to stdout
+        if not args.json:
+            opus45_path = Path(__file__).parent / 'opus45.html'
+            with open(opus45_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+            print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
     
     return 0
 

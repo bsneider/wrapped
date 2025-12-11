@@ -608,8 +608,15 @@ def generate_html(data: dict) -> str:
             padding: 1.5rem;
             text-align: center;
             position: relative;
+            cursor: help;
+            transition: transform 0.2s, box-shadow 0.2s;
         }}
-        
+
+        .tombstone:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(255, 0, 110, 0.3);
+        }}
+
         .tombstone::before {{
             content: '🪦';
             font-size: 2rem;
@@ -618,19 +625,121 @@ def generate_html(data: dict) -> str:
             left: 50%;
             transform: translateX(-50%);
         }}
-        
+
         .tombstone-value {{
             font-family: 'Orbitron', monospace;
             font-size: 2rem;
             color: var(--neon-pink);
         }}
-        
+
         .tombstone-label {{
             font-size: 0.8rem;
             color: rgba(255,255,255,0.5);
             margin-top: 0.5rem;
         }}
-        
+
+        /* Tooltip for tombstones */
+        .tombstone-tooltip {{
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--neon-pink);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 100;
+            pointer-events: none;
+        }}
+
+        .tombstone-tooltip::after {{
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--neon-pink);
+        }}
+
+        .tombstone:hover .tombstone-tooltip {{
+            opacity: 1;
+            visibility: visible;
+        }}
+
+        /* Context Health section */
+        .context-health {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }}
+
+        .context-metric {{
+            background: linear-gradient(135deg, rgba(0, 245, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .context-metric::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+        }}
+
+        .context-metric-value {{
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+
+        .context-metric-label {{
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+            margin-top: 0.5rem;
+        }}
+
+        .context-metric-detail {{
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }}
+
+        .context-health-bar {{
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }}
+
+        .context-health-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink));
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }}
+
         /* Tool belt */
         .tool-belt {{
             display: flex;
@@ -1100,17 +1209,20 @@ def generate_html(data: dict) -> str:
 
         .skyline-container {{
             position: relative;
-            height: 250px;
+            height: 280px;
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            gap: 3px;
-            padding: 20px;
+            gap: 2px;
+            padding: 30px 20px 20px 20px;
             background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.05) 100%);
             border-radius: 16px;
             margin-bottom: 1rem;
             overflow-x: auto;
             overflow-y: hidden;
+            /* 3D Perspective */
+            perspective: 1000px;
+            transform-style: preserve-3d;
         }}
 
         .skyline-container::before {{
@@ -1119,9 +1231,23 @@ def generate_html(data: dict) -> str:
             bottom: 0;
             left: 0;
             right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.15) 50%, rgba(0, 245, 255, 0.1) 100%);
+            transform: rotateX(60deg) translateZ(-20px);
+            transform-origin: bottom;
+            border-radius: 0 0 16px 16px;
+        }}
+
+        .skyline-container::after {{
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), var(--neon-pink), transparent);
             animation: skyline-glow 3s ease-in-out infinite;
+            z-index: 5;
         }}
 
         @keyframes skyline-glow {{
@@ -1133,57 +1259,117 @@ def generate_html(data: dict) -> str:
             flex-shrink: 0;
             width: 10px;
             min-height: 5px;
-            border-radius: 3px 3px 0 0;
             position: relative;
             cursor: pointer;
             transition: all 0.3s ease;
             animation: skyline-rise 1s ease-out forwards;
-            transform-origin: bottom;
+            transform-origin: bottom center;
             opacity: 0;
+            /* 3D building effect */
+            transform-style: preserve-3d;
+            border-radius: 2px 2px 0 0;
+        }}
+
+        /* 3D front face */
+        .skyline-bar::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            border-radius: inherit;
+            transform: translateZ(4px);
+        }}
+
+        /* 3D right side face */
+        .skyline-bar .bar-side {{
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 4px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            transform: rotateY(90deg) translateZ(0px);
+            transform-origin: left;
+        }}
+
+        /* 3D top face */
+        .skyline-bar .bar-top {{
+            position: absolute;
+            top: -4px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotateX(90deg) translateZ(0px);
+            transform-origin: bottom;
         }}
 
         /* Different colors for different metrics */
         .skyline-bar.metric-sessions {{
             background: linear-gradient(180deg, var(--neon-cyan) 0%, #0891b2 100%);
+            box-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
         }}
 
         .skyline-bar.metric-tokens {{
             background: linear-gradient(180deg, var(--neon-purple) 0%, #7c3aed 100%);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
         }}
 
         .skyline-bar.metric-cost {{
             background: linear-gradient(180deg, var(--neon-pink) 0%, #db2777 100%);
+            box-shadow: 0 0 10px rgba(255, 0, 110, 0.3);
         }}
 
         .skyline-bar:hover {{
             filter: brightness(1.4);
-            box-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
-            transform: scaleY(1.1) scaleX(1.5);
+            box-shadow: 0 0 25px currentColor, 0 0 50px currentColor;
+            transform: scaleY(1.05) scaleX(1.3) translateZ(10px);
             z-index: 10;
         }}
 
-        .skyline-bar::after {{
-            content: attr(data-label);
+        .skyline-bar .bar-label {{
             position: absolute;
             bottom: 100%;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateZ(5px);
             font-size: 0.65rem;
             color: rgba(255,255,255,0.7);
             white-space: nowrap;
             opacity: 0;
             transition: opacity 0.2s;
             pointer-events: none;
-            padding-bottom: 4px;
+            padding-bottom: 8px;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
         }}
 
-        .skyline-bar:hover::after {{
+        .skyline-bar:hover .bar-label {{
             opacity: 1;
         }}
 
+        /* Reflection effect */
+        .skyline-reflection {{
+            position: absolute;
+            bottom: -40px;
+            left: 20px;
+            right: 20px;
+            height: 40px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2px;
+            opacity: 0.15;
+            transform: scaleY(-1);
+            filter: blur(2px);
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%);
+        }}
+
         @keyframes skyline-rise {{
-            0% {{ transform: scaleY(0); opacity: 0; }}
-            100% {{ transform: scaleY(1); opacity: 1; }}
+            0% {{ transform: scaleY(0) translateZ(0); opacity: 0; }}
+            100% {{ transform: scaleY(1) translateZ(4px); opacity: 1; }}
         }}
 
         /* Activity Ring - Circular weekly pattern */
@@ -1320,6 +1506,41 @@ def generate_html(data: dict) -> str:
         .heatmap-tooltip .tooltip-value {{
             color: var(--neon-pink);
             font-family: 'JetBrains Mono', monospace;
+        }}
+
+        /* Ring tooltip */
+        .ring-tooltip {{
+            position: fixed;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(0,245,255,0.2);
+        }}
+
+        .ring-tooltip.visible {{
+            opacity: 1;
+        }}
+
+        .ring-tooltip-day {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }}
+
+        .ring-tooltip-stats {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.8);
         }}
 
         /* Heatmap stats */
@@ -1737,6 +1958,7 @@ def generate_html(data: dict) -> str:
                 </div>
                 <div class="ring-legend" id="ringLegend"></div>
             </div>
+            <div class="ring-tooltip" id="ringTooltip"></div>
         </section>
         
         <!-- The Graveyard -->
@@ -1744,28 +1966,70 @@ def generate_html(data: dict) -> str:
             <div class="chart-title"><span>🪦</span> The Graveyard of Good Intentions</div>
             <div class="graveyard">
                 <div class="tombstone">
+                    <div class="tombstone-tooltip">Sessions that lasted less than 2 minutes.<br>Sometimes you just need to check one thing...</div>
                     <div class="tombstone-value">{rage_quits}</div>
                     <div class="tombstone-label">Rage Quits<br><small>(&lt;2 min sessions)</small></div>
                 </div>
                 <div class="tombstone">
-                    <div class="tombstone-value">{len(data.get('abandoned_projects', []))}</div>
-                    <div class="tombstone-label">Abandoned<br>Projects</div>
+                    <div class="tombstone-tooltip">Total API errors encountered across all sessions.<br>Network issues, rate limits, and other failures.</div>
+                    <div class="tombstone-value">{data.get('total_errors', 0)}</div>
+                    <div class="tombstone-label">API<br>Errors</div>
                 </div>
                 <div class="tombstone">
+                    <div class="tombstone-tooltip">Todo items created by subagents that were<br>never associated with a parent session.</div>
                     <div class="tombstone-value">{orphan_todos}</div>
                     <div class="tombstone-label">Orphaned<br>Agent Tasks</div>
                 </div>
                 <div class="tombstone">
+                    <div class="tombstone-tooltip">Times the context window filled up and<br>Claude had to summarize the conversation.</div>
                     <div class="tombstone-value">{context_collapses}</div>
                     <div class="tombstone-label">Context<br>Collapses</div>
                 </div>
                 <div class="tombstone">
+                    <div class="tombstone-tooltip">Percentage of todos that were created<br>but never marked as completed.</div>
                     <div class="tombstone-value">{100-todo_completion:.0f}%</div>
                     <div class="tombstone-label">Todos Never<br>Completed</div>
                 </div>
             </div>
         </section>
-        
+
+        <!-- Context Health -->
+        <section class="chart-section">
+            <div class="chart-title"><span>🧠</span> Context Engineering Report</div>
+            <div class="context-health">
+                <div class="context-metric">
+                    <div class="context-metric-value">{data.get('sessions_with_compaction', 0)}</div>
+                    <div class="context-metric-label">Sessions w/ Compaction</div>
+                    <div class="context-metric-detail">{data.get('sessions_with_compaction', 0) / max(data.get('total_sessions', 1), 1) * 100:.1f}% of all sessions</div>
+                </div>
+                <div class="context-metric">
+                    <div class="context-metric-value">{data.get('max_compactions_in_session', 0)}</div>
+                    <div class="context-metric-label">Max Compactions</div>
+                    <div class="context-metric-detail">Most in a single session</div>
+                </div>
+                <div class="context-metric">
+                    <div class="context-metric-value">{data.get('multi_compaction_sessions', 0)}</div>
+                    <div class="context-metric-label">Deep Dive Sessions</div>
+                    <div class="context-metric-detail">3+ compactions (marathon coding)</div>
+                </div>
+                <div class="context-metric">
+                    <div class="context-metric-value">{data.get('input_output_ratio', 0):.1f}x</div>
+                    <div class="context-metric-label">Input/Output Ratio</div>
+                    <div class="context-metric-detail">{'Context-heavy' if data.get('input_output_ratio', 0) > 5 else 'Balanced' if data.get('input_output_ratio', 0) > 2 else 'Output-heavy'} usage</div>
+                </div>
+                <div class="context-metric">
+                    <div class="context-metric-value">{format_number(data.get('avg_tokens_per_message', 0))}</div>
+                    <div class="context-metric-label">Avg Tokens/Message</div>
+                    <div class="context-metric-detail">{'Verbose' if data.get('avg_tokens_per_message', 0) > 2000 else 'Concise' if data.get('avg_tokens_per_message', 0) < 500 else 'Normal'} messages</div>
+                </div>
+                <div class="context-metric">
+                    <div class="context-metric-value">{int(data.get('tokens_per_compaction', 0) / 1000)}K</div>
+                    <div class="context-metric-label">Tokens per Compaction</div>
+                    <div class="context-metric-detail">Avg tokens before context reset</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Tool Belt -->
         <section class="chart-section">
             <div class="chart-title"><span>🛠️</span> Your Tool Belt</div>
@@ -2161,6 +2425,9 @@ def generate_html(data: dict) -> str:
             }}
 
             // Activity Ring - Weekly Pattern
+            let ringSegments = []; // Store segment data for hover detection
+            const ringTooltip = document.getElementById('ringTooltip');
+
             function drawActivityRing() {{
                 const ctx = ringCanvas.getContext('2d');
                 const centerX = 140;
@@ -2174,6 +2441,7 @@ def generate_html(data: dict) -> str:
                 const total = values.reduce((a, b) => a + b, 0);
 
                 ringTotal.textContent = total;
+                ringSegments = []; // Reset segments
 
                 ctx.clearRect(0, 0, 280, 280);
 
@@ -2187,6 +2455,16 @@ def generate_html(data: dict) -> str:
 
                     const sweepAngle = (value / total) * 2 * Math.PI;
                     const endAngle = startAngle + sweepAngle;
+
+                    // Store segment info for hover detection
+                    ringSegments.push({{
+                        day: day,
+                        value: value,
+                        percentage: ((value / total) * 100).toFixed(1),
+                        startAngle: startAngle,
+                        endAngle: endAngle,
+                        color: colors[i]
+                    }});
 
                     // Draw arc segment
                     ctx.beginPath();
@@ -2219,6 +2497,59 @@ def generate_html(data: dict) -> str:
                     </div>
                 `).join('');
             }}
+
+            // Ring hover detection
+            ringCanvas.addEventListener('mousemove', (e) => {{
+                const rect = ringCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const centerX = 140;
+                const centerY = 140;
+                const dx = x - centerX;
+                const dy = y - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Check if within ring area (between inner and outer radius)
+                if (distance >= 85 && distance <= 130) {{
+                    let angle = Math.atan2(dy, dx);
+                    // Adjust angle to match our starting point (top = -PI/2)
+                    // atan2 returns -PI to PI, we need to map it
+
+                    const segment = ringSegments.find(seg => {{
+                        // Normalize angles for comparison
+                        let a = angle;
+                        let start = seg.startAngle;
+                        let end = seg.endAngle;
+
+                        // Handle wrap-around
+                        if (end < start) end += 2 * Math.PI;
+                        if (a < start) a += 2 * Math.PI;
+
+                        return a >= start && a < end;
+                    }});
+
+                    if (segment) {{
+                        ringTooltip.innerHTML = `
+                            <div class="ring-tooltip-day" style="color: ${{segment.color}}">${{segment.day}}</div>
+                            <div class="ring-tooltip-stats">
+                                <span>${{segment.value}} sessions</span>
+                                <span>${{segment.percentage}}% of week</span>
+                            </div>
+                        `;
+                        ringTooltip.style.left = (e.pageX + 15) + 'px';
+                        ringTooltip.style.top = (e.pageY - 10) + 'px';
+                        ringTooltip.classList.add('visible');
+                        return;
+                    }}
+                }}
+
+                ringTooltip.classList.remove('visible');
+            }});
+
+            ringCanvas.addEventListener('mouseleave', () => {{
+                ringTooltip.classList.remove('visible');
+            }});
 
             // Button handlers
             document.querySelectorAll('.heatmap-btn').forEach(btn => {{

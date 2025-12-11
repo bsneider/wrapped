@@ -39,6 +39,9 @@ class SessionStats:
     summary_count: int = 0
     error_count: int = 0
     cwd_changes: list = field(default_factory=list)
+    # Context health metrics
+    max_tokens_in_message: int = 0  # Largest single message (context pressure indicator)
+    context_utilization: float = 0.0  # Estimated context usage at peak
     # New: Agent/skill/command tracking
     agents_used: list = field(default_factory=list)
     skills_used: list = field(default_factory=list)
@@ -121,7 +124,18 @@ class ClaudeWrappedData:
     # Context collapse (summaries = context was nuked)
     total_summaries: int = 0
     context_collapse_rate: float = 0.0
-    
+    sessions_with_compaction: int = 0  # Sessions that had at least 1 compaction
+    max_compactions_in_session: int = 0  # Most compactions in a single session
+    multi_compaction_sessions: int = 0  # Sessions with 3+ compactions (deep dives)
+    compactions_by_model: dict = field(default_factory=lambda: defaultdict(int))  # Which models caused compactions
+
+    # Context engineering metrics (based on research)
+    avg_tokens_per_message: float = 0.0  # Average message size
+    max_tokens_in_session: int = 0  # Largest cumulative token count in a session
+    context_pressure_sessions: int = 0  # Sessions that likely hit context limits (>80% utilization estimate)
+    input_output_ratio: float = 0.0  # Input tokens / output tokens (high = context-heavy usage)
+    tokens_per_compaction: float = 0.0  # Average tokens consumed before a compaction
+
     # Version tracking
     versions_used: list = field(default_factory=list)
     
@@ -1012,7 +1026,28 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
         data.total_sidechains += session.sidechain_count
         data.total_summaries += session.summary_count
         data.total_errors += session.error_count
-        
+
+        # Context compaction tracking
+        if session.summary_count > 0:
+            data.sessions_with_compaction += 1
+            if session.summary_count > data.max_compactions_in_session:
+                data.max_compactions_in_session = session.summary_count
+            if session.summary_count >= 3:
+                data.multi_compaction_sessions += 1
+            # Track which models were used in sessions with compactions
+            for model in session.models_used:
+                data.compactions_by_model[model] += session.summary_count
+
+        # Track max tokens in a session (context pressure indicator)
+        session_total_tokens = session.total_input_tokens + session.total_output_tokens
+        if session_total_tokens > data.max_tokens_in_session:
+            data.max_tokens_in_session = session_total_tokens
+
+        # Estimate context pressure (if session used >80% of 200k context limit, ~160k tokens)
+        estimated_context_limit = 200000  # Conservative estimate for Claude models
+        if session_total_tokens > estimated_context_limit * 0.8:
+            data.context_pressure_sessions += 1
+
         # Tool frequency
         for tool in session.tools_used:
             data.tool_frequency[tool] += 1
@@ -1099,7 +1134,16 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
     # Context collapse rate
     if data.total_sessions > 0:
         data.context_collapse_rate = data.total_summaries / data.total_sessions
-    
+
+    # Context engineering derived metrics
+    if data.total_messages > 0:
+        data.avg_tokens_per_message = (data.total_input_tokens + data.total_output_tokens) / data.total_messages
+    if data.total_output_tokens > 0:
+        data.input_output_ratio = data.total_input_tokens / data.total_output_tokens
+    if data.total_summaries > 0:
+        # Estimate tokens consumed before each compaction
+        data.tokens_per_compaction = (data.total_input_tokens + data.total_output_tokens) / data.total_summaries
+
     # Project stats
     data.unique_projects = len(project_sessions)
     data.project_list = list(project_sessions.keys())
