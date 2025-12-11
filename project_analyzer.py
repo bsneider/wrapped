@@ -595,15 +595,15 @@ def group_projects_smart(analyses: list[ProjectAnalysis]) -> dict[str, list[str]
     """Smart grouping based on analysis results."""
     groups = defaultdict(list)
 
-    # Group by detected frameworks
+    # Group by detected frameworks (normalize to lowercase for consistency)
     for analysis in analyses:
         for framework in analysis.frameworks:
-            groups[f'framework:{framework}'].append(analysis.name)
+            groups[f'framework:{framework.lower()}'].append(analysis.name)
 
-    # Group by category
+    # Group by category (normalize to lowercase)
     for analysis in analyses:
         if analysis.category and analysis.category != 'other':
-            groups[f'category:{analysis.category}'].append(analysis.name)
+            groups[f'category:{analysis.category.lower()}'].append(analysis.name)
 
     # Group by related projects (cluster detection)
     # Find clusters of related projects

@@ -453,6 +453,62 @@ FRAMEWORK_KEYWORDS = {
     'tigergraph': [
         'tigergraph', 'gsql',
     ],
+    'falkordb': [
+        'falkordb', 'falkor', 'graphrag', 'falkordb-py',
+        'from falkordb', 'falkor graph',
+    ],
+    'kuzu': [
+        'kuzu', 'kuzudb', 'kuzu graph', 'from kuzu',
+    ],
+    'terminusdb': [
+        'terminusdb', 'terminus', 'terminusdb-client',
+    ],
+
+    # =========================================================================
+    # DATABASES - MULTI-MODEL & AI-NATIVE
+    # =========================================================================
+    'surrealdb': [
+        'surrealdb', 'surreal', 'surrealql', 'surreal.new',
+        'from surrealdb', 'surreal db',
+    ],
+    'duckdb': [
+        'duckdb', 'duck db', 'duckdb-wasm', 'from duckdb',
+        'duckdb.connect', 'motherduck',
+    ],
+    'lancedb': [
+        'lancedb', 'lance db', 'lance format', 'from lancedb',
+        'lancedb.connect', 'lance columnar',
+    ],
+    'edgedb': [
+        'edgedb', 'edge db', 'edgeql', 'from edgedb',
+    ],
+    'tidb': [
+        'tidb', 'ti db', 'pingcap', 'tidb cloud',
+        'tidb serverless',
+    ],
+    'cockroachdb': [
+        'cockroachdb', 'cockroach', 'crdb',
+    ],
+    'cozodb': [
+        'cozodb', 'cozo', 'datalog',
+    ],
+
+    # =========================================================================
+    # AI MEMORY & KNOWLEDGE GRAPHS
+    # =========================================================================
+    'graphiti': [
+        'graphiti', 'graphiti-core', 'from graphiti', 'zep graphiti',
+        'temporal knowledge graph',
+    ],
+    'mem0': [
+        'mem0', 'mem0ai', 'from mem0',
+    ],
+    'zep': [
+        'zep', 'zep-python', 'from zep_python', 'zep memory',
+    ],
+    'memgpt': [
+        'memgpt', 'letta', 'from memgpt', 'from letta',
+    ],
 
     # =========================================================================
     # ORMS & DATABASE TOOLS
@@ -899,8 +955,10 @@ FRAMEWORK_KEYWORDS = {
     # MOBILE
     # =========================================================================
     'react-native': [
-        'react native', 'react-native', 'expo', 'eas build',
-        'metro.config', 'app.json', 'expo-router',
+        'react native', 'react-native', 'eas build',
+        'metro.config', 'expo-router', 'expo-cli', 'expo start',
+        'react-native-', 'expo install', 'expo sdk', 'expo.dev',
+        'from react-native', '@react-native', 'npx expo',
     ],
     'flutter': [
         'flutter', 'dart', 'pubspec.yaml', 'widget',
@@ -1139,8 +1197,9 @@ PROJECT_COMPONENTS = {
         'app.tsx', 'main.tsx', 'index.html', 'vite.config',
     ],
     'mobile-app': [
-        'react native', 'expo', 'ios/', 'android/', 'app.json',
-        'metro.config', 'eas.json', 'capacitor',
+        'react native', 'react-native', 'ios/', 'android/',
+        'metro.config', 'eas.json', 'capacitor', 'expo-router',
+        'expo-cli', 'expo.dev', 'npx expo',
     ],
     'desktop-app': [
         'electron', 'tauri', 'main.electron', 'preload.js',
@@ -1314,7 +1373,7 @@ CATEGORY_PATTERNS = {
     'web-app': ['frontend', 'backend', 'fullstack', 'web app', 'dashboard', 'saas'],
     'cli-tool': ['cli', 'command line', 'terminal'],
     'api': ['api', 'rest', 'graphql', 'endpoint', 'microservice'],
-    'mobile': ['mobile', 'ios', 'android', 'react native', 'flutter', 'expo'],
+    'mobile': ['mobile', 'ios', 'android', 'react native', 'react-native', 'flutter', 'expo-router', 'metro.config'],
     'infrastructure': ['infra', 'devops', 'deploy', 'ci/cd', 'kubernetes', 'terraform'],
     'data': ['data', 'etl', 'pipeline', 'analytics', 'visualization', 'ingestion'],
     'ml': ['machine learning', 'ml', 'neural', 'training', 'inference', 'model'],
@@ -1374,6 +1433,14 @@ FRAMEWORK_ICONS = {
 
     # Graph Databases
     'neo4j': '🔵', 'dgraph': '📊', 'arangodb': '🥑', 'tigergraph': '🐯',
+    'falkordb': '🦅', 'kuzu': '🔷', 'terminusdb': '🔺',
+
+    # Multi-Model & AI-Native Databases
+    'surrealdb': '🌀', 'duckdb': '🦆', 'lancedb': '🗡️', 'edgedb': '⚡',
+    'tidb': '📊', 'cockroachdb': '🪳', 'cozodb': '🧩',
+
+    # AI Memory & Knowledge Graphs
+    'graphiti': '🧠', 'mem0': '💭', 'zep': '⚡', 'memgpt': '🧠',
 
     # ORMs
     'prisma': '◭', 'drizzle': '💧', 'sqlalchemy': '🔮', 'typeorm': '📦',
@@ -1566,6 +1633,12 @@ DOMAIN_HINTS = {
     'pinecone': 'vector search',
     'chromadb': 'embeddings',
     'neo4j': 'graph database',
+    'falkordb': 'GraphRAG database',
+    'surrealdb': 'multi-model database',
+    'duckdb': 'embedded analytics',
+    'lancedb': 'multimodal vectors',
+    'graphiti': 'knowledge graphs',
+    'mem0': 'AI memory layer',
 
     # External Data Sources
     'pubmed': 'biomedical research',

@@ -6,9 +6,7 @@ Maximum vibes. Maximum roast energy.
 """
 
 import json
-import os
-from pathlib import Path
-from datetime import datetime
+import sys
 import html
 
 
@@ -191,7 +189,6 @@ def generate_html(data: dict) -> str:
     messages_formatted = format_number(total_messages)
     tokens_formatted = format_tokens(total_tokens)
     cost_formatted = format_cost(total_cost)
-    avg_session = format_duration(data.get('average_session_duration_ms', 0))
     longest_session = format_duration(data.get('longest_session_duration_ms', 0))
     
     # Developer personality and coding city
@@ -2042,6 +2039,9 @@ def generate_html(data: dict) -> str:
         <!-- Tool Belt -->
         <section class="chart-section">
             <div class="chart-title"><span>🛠️</span> Your Tool Belt</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1rem; font-size: 0.9rem;">
+                Claude Code tools you use most: Read, Edit, Bash, Grep, and any custom MCP tools (mcp__*).
+            </p>
             <div class="chart-container">
                 <canvas id="toolChart"></canvas>
             </div>
@@ -2957,6 +2957,7 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
                     <span>{sessions} sessions</span>
                     <span>{messages} msgs</span>
                     <span>{tokens} tokens</span>
+                    <span>{cost}</span>
                 </div>
                 {tech_html}
             </div>
@@ -3028,6 +3029,12 @@ def generate_frameworks_html(data: dict) -> str:
         'mongodb': 'NoSQL document database', 'redis': 'In-memory data store',
         'pinecone': 'Vector database for AI', 'chromadb': 'Open-source embeddings database',
         'neo4j': 'Graph database', 'elasticsearch': 'Search and analytics engine',
+        # Modern AI databases
+        'falkordb': 'GraphRAG-optimized graph database', 'surrealdb': 'Multi-model database for AI',
+        'duckdb': 'Embedded analytics database', 'lancedb': 'Multimodal vector database',
+        'graphiti': 'Temporal knowledge graph framework', 'mem0': 'AI memory layer',
+        'kuzu': 'Embedded graph database', 'edgedb': 'Graph-relational database',
+        'tidb': 'Distributed SQL with vector search', 'zep': 'LLM memory service',
         # External Data
         'pubmed': 'Biomedical literature database', 'arxiv': 'Physics/CS preprint server',
         'biorxiv': 'Biology preprint server', 'medrxiv': 'Health sciences preprint server',
