@@ -57,6 +57,15 @@ class ClaudeWrappedData:
     total_cache_read_tokens: int = 0
     total_cost_usd: float = 0.0
     
+    # Project explorer - top projects with detailed stats
+    top_projects: list = field(default_factory=list)  # List of dicts with project stats
+    
+    # Developer personality (inspired by competitor)
+    developer_personality: str = ""
+    personality_description: str = ""
+    coding_city: str = ""
+    coding_city_description: str = ""
+    
     # Time patterns
     hourly_distribution: dict = field(default_factory=lambda: defaultdict(int))
     daily_distribution: dict = field(default_factory=lambda: defaultdict(int))
@@ -166,11 +175,53 @@ def parse_timestamp(ts_str: str) -> Optional[datetime]:
 
 
 def decode_project_path(encoded: str) -> str:
-    """Decode the encoded project path from directory name."""
-    # -Users-foo-bar becomes /Users/foo/bar
+    """Decode the encoded project path from directory name.
+    
+    Handles various encoding conventions:
+    - Standard: -Users-foo-bar becomes /Users/foo/bar
+    - Worktrees: May have special suffixes or patterns
+    """
+    if not encoded:
+        return encoded
+    
+    # Standard encoding: leading dash with dashes for slashes
     if encoded.startswith('-'):
-        return encoded.replace('-', '/')
+        decoded = encoded.replace('-', '/')
+        
+        # Extract just the project name for cleaner display
+        # /Users/foo/projects/my-project -> my-project
+        parts = decoded.rstrip('/').split('/')
+        if parts:
+            # Return last non-empty part as project name
+            for part in reversed(parts):
+                if part and part not in ('Users', 'home', 'root'):
+                    return part
+        return decoded
+    
+    # Handle worktree patterns (e.g., project-worktree-feature-branch)
+    # These may have multiple segments
+    if '-worktree-' in encoded.lower():
+        # Extract base project name before worktree suffix
+        parts = encoded.split('-worktree-')
+        return parts[0] if parts else encoded
+    
     return encoded
+
+
+def get_project_display_name(path: str) -> str:
+    """Get a clean display name for a project path."""
+    if not path:
+        return "Unknown"
+    
+    # If it's already decoded, extract the last meaningful part
+    if '/' in path:
+        parts = path.rstrip('/').split('/')
+        for part in reversed(parts):
+            if part and part not in ('Users', 'home', 'root', 'projects', 'repos', 'code', 'src'):
+                return part
+        return parts[-1] if parts else path
+    
+    return path
 
 
 def parse_jsonl_file(filepath: Path) -> list[dict]:
@@ -242,25 +293,67 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
             if cost:
                 stats.total_cost_usd += float(cost)
             elif input_tokens or output_tokens:
-                # Calculate cost from tokens using Claude Sonnet 4 pricing as default
-                # Pricing per 1M tokens (as of late 2025):
-                # - Input: $3/1M, Output: $15/1M
-                # - Cache write: $3.75/1M, Cache read: $0.30/1M
-                # Adjust based on model if known
-                model = inner_msg.get('model', '')
-                if 'opus' in model.lower():
-                    input_price = 15.0 / 1_000_000  # $15/1M
-                    output_price = 75.0 / 1_000_000  # $75/1M
+                # Calculate cost from tokens using comprehensive model pricing
+                # Pricing per 1M tokens (as of December 2025):
+                model = inner_msg.get('model', '').lower()
+                
+                # Opus family
+                if 'opus-4-5' in model or 'opus-4.5' in model:
+                    # Opus 4.5: $5/$25 per 1M tokens
+                    input_price = 5.0 / 1_000_000
+                    output_price = 25.0 / 1_000_000
+                    cache_write_price = 6.25 / 1_000_000  # 1.25x input
+                    cache_read_price = 0.50 / 1_000_000   # 0.1x input
+                elif 'opus-4-1' in model or 'opus-4.1' in model or 'opus-4' in model:
+                    # Opus 4/4.1: $15/$75 per 1M tokens
+                    input_price = 15.0 / 1_000_000
+                    output_price = 75.0 / 1_000_000
                     cache_write_price = 18.75 / 1_000_000
                     cache_read_price = 1.50 / 1_000_000
-                elif 'haiku' in model.lower():
-                    input_price = 0.25 / 1_000_000  # $0.25/1M
-                    output_price = 1.25 / 1_000_000  # $1.25/1M
+                elif 'opus' in model:
+                    # Older Opus (3.x): $15/$75 per 1M tokens
+                    input_price = 15.0 / 1_000_000
+                    output_price = 75.0 / 1_000_000
+                    cache_write_price = 18.75 / 1_000_000
+                    cache_read_price = 1.50 / 1_000_000
+                    
+                # Haiku family
+                elif 'haiku-4-5' in model or 'haiku-4.5' in model:
+                    # Haiku 4.5: $1/$5 per 1M tokens
+                    input_price = 1.0 / 1_000_000
+                    output_price = 5.0 / 1_000_000
+                    cache_write_price = 1.25 / 1_000_000
+                    cache_read_price = 0.10 / 1_000_000
+                elif 'haiku-3-5' in model or 'haiku-3.5' in model:
+                    # Haiku 3.5: $0.80/$4 per 1M tokens
+                    input_price = 0.80 / 1_000_000
+                    output_price = 4.0 / 1_000_000
+                    cache_write_price = 1.0 / 1_000_000
+                    cache_read_price = 0.08 / 1_000_000
+                elif 'haiku' in model:
+                    # Haiku 3: $0.25/$1.25 per 1M tokens
+                    input_price = 0.25 / 1_000_000
+                    output_price = 1.25 / 1_000_000
                     cache_write_price = 0.30 / 1_000_000
                     cache_read_price = 0.03 / 1_000_000
-                else:  # Default to Sonnet pricing
-                    input_price = 3.0 / 1_000_000  # $3/1M
-                    output_price = 15.0 / 1_000_000  # $15/1M
+                    
+                # Sonnet family (default)
+                elif 'sonnet-4-5' in model or 'sonnet-4.5' in model:
+                    # Sonnet 4.5: $3/$15 per 1M tokens
+                    input_price = 3.0 / 1_000_000
+                    output_price = 15.0 / 1_000_000
+                    cache_write_price = 3.75 / 1_000_000
+                    cache_read_price = 0.30 / 1_000_000
+                elif 'sonnet-3-7' in model or 'sonnet-3.7' in model:
+                    # Sonnet 3.7: $3/$15 per 1M tokens
+                    input_price = 3.0 / 1_000_000
+                    output_price = 15.0 / 1_000_000
+                    cache_write_price = 3.75 / 1_000_000
+                    cache_read_price = 0.30 / 1_000_000
+                else:
+                    # Default to Sonnet 4 pricing: $3/$15 per 1M tokens
+                    input_price = 3.0 / 1_000_000
+                    output_price = 15.0 / 1_000_000
                     cache_write_price = 3.75 / 1_000_000
                     cache_read_price = 0.30 / 1_000_000
                 
@@ -451,6 +544,130 @@ def find_tool_chains(sessions: list[SessionStats], min_length: int = 3) -> list[
     
     # Return top 10 most common chains
     return chain_counter.most_common(10)
+
+
+def determine_developer_personality(data: 'ClaudeWrappedData') -> tuple[str, str]:
+    """Determine developer personality based on usage patterns."""
+    
+    tool_freq = data.tool_frequency
+    total_tools = sum(tool_freq.values()) if tool_freq else 0
+    
+    # Analyze patterns
+    read_heavy = tool_freq.get('Read', 0) > tool_freq.get('Edit', 0) * 1.5 if tool_freq else False
+    edit_heavy = tool_freq.get('Edit', 0) > tool_freq.get('Read', 0) * 1.5 if tool_freq else False
+    bash_heavy = tool_freq.get('Bash', 0) > total_tools * 0.2 if total_tools else False
+    
+    # Night owl vs early bird
+    hour_dist = data.hourly_distribution
+    night_activity = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(22, 24)) + \
+                    sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(0, 5))
+    morning_activity = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(5, 10))
+    total_activity = sum(hour_dist.values()) if hour_dist else 1
+    
+    is_night_owl = night_activity > total_activity * 0.15
+    is_early_bird = morning_activity > total_activity * 0.2
+    
+    # Marathon vs sprinter
+    is_marathoner = data.marathon_sessions > data.shortest_sessions
+    
+    # Calculate chaos factor
+    chaos_factor = (data.total_errors + data.total_summaries + len(data.abandoned_projects)) / max(data.total_sessions, 1)
+    
+    # Determine personality
+    if is_night_owl and is_marathoner:
+        return "The Night Architect", "You build empires while the world sleeps. Long sessions, deep focus, questionable sleep schedule."
+    elif is_early_bird and read_heavy:
+        return "The Morning Scholar", "Up with the sun, reading code before coffee. You understand before you modify."
+    elif bash_heavy and edit_heavy:
+        return "The Terminal Wizard", "Command line is your canvas. You speak fluent Bash and think in pipes."
+    elif chaos_factor > 0.5:
+        return "The Chaos Pilot", "Context collapses? Abandoned projects? Errors? You thrive in entropy. Somehow, it ships."
+    elif data.cache_efficiency_ratio > 0.7:
+        return "The Efficiency Expert", "Your context reuse is legendary. Every token counts. Your API bill thanks you."
+    elif data.sidechain_ratio > 0.1:
+        return "The Parallel Processor", "You let Claude go rogue on sidechains. Delegation is your superpower."
+    elif is_marathoner:
+        return "The Deep Diver", "When you start a session, you COMMIT. Marathon sessions, massive context, no distractions."
+    elif data.unique_projects > 10:
+        return "The Project Juggler", "So many projects, so little time. You context-switch like a caffeinated octopus."
+    else:
+        return "The Balanced Builder", "Steady and consistent. You've found your rhythm with Claude."
+
+
+def determine_coding_city(data: 'ClaudeWrappedData') -> tuple[str, str]:
+    """Match user to a coding city based on their patterns (inspired by Spotify's Sound Town)."""
+    
+    # Analyze patterns
+    hour_dist = data.hourly_distribution
+    total_activity = sum(hour_dist.values()) if hour_dist else 1
+    
+    # Time patterns
+    night_pct = (sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(22, 24)) + 
+                sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(0, 5))) / max(total_activity, 1)
+    
+    morning_pct = sum(hour_dist.get(h, hour_dist.get(str(h), 0)) for h in range(5, 10)) / max(total_activity, 1)
+    
+    # Intensity
+    sessions_per_project = data.total_sessions / max(data.unique_projects, 1)
+    
+    # Weekday patterns
+    weekday_dist = data.weekday_distribution
+    weekend_activity = weekday_dist.get('Saturday', 0) + weekday_dist.get('Sunday', 0)
+    weekday_activity = sum(weekday_dist.get(d, 0) for d in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
+    weekend_ratio = weekend_activity / max(weekday_activity + weekend_activity, 1)
+    
+    # Determine city
+    if night_pct > 0.25:
+        return "Tokyo, Japan 🇯🇵", "The city that never sleeps matches your nocturnal coding sessions. Vending machine coffee at 3am vibes."
+    elif morning_pct > 0.25:
+        return "Stockholm, Sweden 🇸🇪", "Early risers unite! Your morning productivity matches Stockholm's fika-fueled work culture."
+    elif weekend_ratio > 0.4:
+        return "Austin, TX 🇺🇸", "You code on weekends like Austin keeps it weird. Work hard, play hard, ship whenever."
+    elif sessions_per_project > 20:
+        return "Berlin, Germany 🇩🇪", "Deep focus, intense sessions. Berlin's techno-fueled all-nighters match your marathon coding."
+    elif data.unique_projects > 15:
+        return "San Francisco, CA 🇺🇸", "Startup energy! Multiple projects, constant pivots. You've got that Bay Area hustle."
+    elif data.cache_efficiency_ratio > 0.7:
+        return "Zurich, Switzerland 🇨🇭", "Precision and efficiency. Your optimized workflows match Swiss engineering excellence."
+    elif data.total_cost_usd > 100:
+        return "Singapore 🇸🇬", "High investment, high returns. Your API spend matches Singapore's premium tech scene."
+    elif data.marathon_sessions > 5:
+        return "Seoul, South Korea 🇰🇷", "Intense gaming-level focus sessions. Your dedication matches Korea's PC bang culture."
+    else:
+        return "London, UK 🇬🇧", "Steady, professional, getting things done. Classic British efficiency."
+
+
+def build_top_projects(project_sessions: dict, limit: int = 10) -> list[dict]:
+    """Build a list of top projects with detailed stats."""
+    project_stats = []
+    
+    for project_path, sessions in project_sessions.items():
+        total_messages = sum(s.message_count for s in sessions)
+        total_tokens = sum(s.total_input_tokens + s.total_output_tokens for s in sessions)
+        total_cost = sum(s.total_cost_usd for s in sessions)
+        
+        # Get time range
+        start_times = [s.start_time for s in sessions if s.start_time]
+        end_times = [s.end_time for s in sessions if s.end_time]
+        
+        first_session = min(start_times).isoformat() if start_times else None
+        last_session = max(end_times).isoformat() if end_times else None
+        
+        project_stats.append({
+            'name': get_project_display_name(project_path),
+            'full_path': project_path,
+            'sessions': len(sessions),
+            'messages': total_messages,
+            'tokens': total_tokens,
+            'cost': total_cost,
+            'first_session': first_session,
+            'last_session': last_session,
+        })
+    
+    # Sort by sessions (most active first)
+    project_stats.sort(key=lambda x: x['sessions'], reverse=True)
+    
+    return project_stats[:limit]
 
 
 def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
@@ -663,6 +880,9 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
     # Tool chains
     data.tool_chains = find_tool_chains(all_sessions)
     
+    # Build top projects list
+    data.top_projects = build_top_projects(project_sessions)
+    
     # Analyze todos
     todo_stats = analyze_todos(claude_dir)
     data.total_todos_created = todo_stats['total_created']
@@ -675,6 +895,10 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
     statsig_stats = analyze_statsig(claude_dir)
     data.feature_flags_exposed = statsig_stats['feature_flags']
     data.experiments_participated = statsig_stats['experiments']
+    
+    # Determine developer personality and coding city
+    data.developer_personality, data.personality_description = determine_developer_personality(data)
+    data.coding_city, data.coding_city_description = determine_coding_city(data)
     
     return data
 

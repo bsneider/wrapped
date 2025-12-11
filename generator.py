@@ -54,13 +54,20 @@ def format_duration(ms: float) -> str:
     return f"{days:.1f}d"
 
 
+def format_number(n: int) -> str:
+    """Format large numbers with K/M/B suffix for display."""
+    if n < 1000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n/1000:.1f}K"
+    if n < 1_000_000_000:
+        return f"{n/1_000_000:.2f}M"
+    return f"{n/1_000_000_000:.2f}B"
+
+
 def format_tokens(tokens: int) -> str:
-    """Format token count with K/M suffix."""
-    if tokens < 1000:
-        return str(tokens)
-    if tokens < 1000000:
-        return f"{tokens/1000:.1f}K"
-    return f"{tokens/1000000:.2f}M"
+    """Format token count with K/M/B suffix."""
+    return format_number(tokens)
 
 
 def format_cost(cost: float) -> str:
@@ -69,7 +76,11 @@ def format_cost(cost: float) -> str:
         return f"${cost:.4f}"
     if cost < 1:
         return f"${cost:.2f}"
-    return f"${cost:.2f}"
+    if cost < 1000:
+        return f"${cost:.2f}"
+    if cost < 1_000_000:
+        return f"${cost/1000:.1f}K"
+    return f"${cost/1_000_000:.2f}M"
 
 
 def get_yapping_verdict(ratio: float) -> tuple[str, str]:
@@ -127,11 +138,22 @@ def generate_html(data: dict) -> str:
     cache_title, cache_desc = get_cache_verdict(data.get('cache_efficiency_ratio', 0))
     time_title, time_desc, peak_hour = get_time_roast(data.get('hourly_distribution', {}))
     
-    # Format numbers
+    # Format numbers - use abbreviated format for large numbers
+    sessions_formatted = format_number(total_sessions)
+    messages_formatted = format_number(total_messages)
     tokens_formatted = format_tokens(total_tokens)
     cost_formatted = format_cost(total_cost)
     avg_session = format_duration(data.get('average_session_duration_ms', 0))
     longest_session = format_duration(data.get('longest_session_duration_ms', 0))
+    
+    # Developer personality and coding city
+    dev_personality = data.get('developer_personality', 'The Coder')
+    personality_desc = data.get('personality_description', '')
+    coding_city = data.get('coding_city', '')
+    coding_city_desc = data.get('coding_city_description', '')
+    
+    # Top projects
+    top_projects = data.get('top_projects', [])
     
     # Prepare chart data
     hourly_data = data.get('hourly_distribution', {})
@@ -613,6 +635,61 @@ def generate_html(data: dict) -> str:
             font-weight: 700;
         }}
         
+        /* Projects grid */
+        .projects-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+        }}
+        
+        .project-card {{
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }}
+        
+        .project-card:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.2);
+            border-color: var(--neon-purple);
+        }}
+        
+        .project-rank {{
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            font-size: 1.5rem;
+            background: var(--card-bg);
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            border: 1px solid var(--neon-cyan);
+        }}
+        
+        .project-name {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--neon-cyan);
+            margin-bottom: 0.75rem;
+            word-break: break-word;
+        }}
+        
+        .project-stats {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }}
+        
+        .project-stats span {{
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }}
+        
         /* Money section */
         .money-section {{
             text-align: center;
@@ -880,11 +957,11 @@ def generate_html(data: dict) -> str:
         <!-- Quick Stats -->
         <section class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value">{total_sessions:,}</div>
+                <div class="stat-value">{sessions_formatted}</div>
                 <div class="stat-label">Sessions</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{total_messages:,}</div>
+                <div class="stat-value">{messages_formatted}</div>
                 <div class="stat-label">Messages</div>
             </div>
             <div class="stat-card">
@@ -940,6 +1017,35 @@ def generate_html(data: dict) -> str:
                     <div class="verdict-title">{time_title}</div>
                     <div class="verdict-desc">{time_desc}</div>
                 </div>
+            </div>
+        </section>
+        
+        <!-- Developer Personality & Coding City -->
+        <section class="verdict-section">
+            <div class="verdict-grid">
+                <!-- Developer Personality -->
+                <div class="verdict-card pink" style="grid-column: span 1;">
+                    <div class="verdict-icon">🎭</div>
+                    <div class="verdict-subtitle">Your Developer Personality</div>
+                    <div class="verdict-title">{dev_personality}</div>
+                    <div class="verdict-desc">{personality_desc}</div>
+                </div>
+                
+                <!-- Coding City -->
+                <div class="verdict-card cyan" style="grid-column: span 1;">
+                    <div class="verdict-icon">🏙️</div>
+                    <div class="verdict-subtitle">Your Coding City</div>
+                    <div class="verdict-title">{coding_city}</div>
+                    <div class="verdict-desc">{coding_city_desc}</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Top Projects Explorer -->
+        <section class="chart-section">
+            <div class="chart-title"><span>📁</span> Top Projects</div>
+            <div class="projects-grid">
+                {generate_top_projects_html(top_projects)}
             </div>
         </section>
         
@@ -1218,6 +1324,44 @@ def generate_model_tags(model_items: list) -> str:
         tags.append(f'<div class="tool-item"><span class="tool-name">{html.escape(display_name)}</span><span class="tool-count">{count}</span></div>')
     
     return '\n'.join(tags)
+
+
+def generate_top_projects_html(projects: list) -> str:
+    """Generate HTML for top projects section."""
+    if not projects:
+        return '<div class="project-card"><div class="project-name">No projects found</div></div>'
+    
+    cards = []
+    for i, proj in enumerate(projects[:8]):  # Show top 8
+        name = html.escape(proj.get('name', 'Unknown'))
+        sessions = proj.get('sessions', 0)
+        messages = proj.get('messages', 0)
+        tokens = format_number(proj.get('tokens', 0))
+        cost = format_cost(proj.get('cost', 0))
+        
+        # Rank badge
+        if i == 0:
+            badge = '🥇'
+        elif i == 1:
+            badge = '🥈'
+        elif i == 2:
+            badge = '🥉'
+        else:
+            badge = f'#{i+1}'
+        
+        cards.append(f'''
+            <div class="project-card">
+                <div class="project-rank">{badge}</div>
+                <div class="project-name">{name}</div>
+                <div class="project-stats">
+                    <span>{sessions} sessions</span>
+                    <span>{messages} msgs</span>
+                    <span>{tokens} tokens</span>
+                </div>
+            </div>
+        ''')
+    
+    return '\n'.join(cards)
 
 
 def main():

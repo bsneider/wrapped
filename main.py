@@ -89,6 +89,12 @@ Easter Eggs:
         help='Suppress banner and progress messages'
     )
     
+    parser.add_argument(
+        '--no-open',
+        action='store_true',
+        help='Do not automatically open the report in a browser'
+    )
+    
     args = parser.parse_args()
     
     # Print banner
@@ -113,6 +119,10 @@ Easter Eggs:
         print(f"✅ Found {data.total_sessions} sessions, {data.total_messages} messages", file=sys.stderr)
         print(f"💰 Total cost: ${data.total_cost_usd:.2f}", file=sys.stderr)
         print(f"🔥 Longest streak: {data.longest_streak_days} days", file=sys.stderr)
+        if data.developer_personality:
+            print(f"🎭 Personality: {data.developer_personality}", file=sys.stderr)
+        if data.coding_city:
+            print(f"🏙️ Coding City: {data.coding_city}", file=sys.stderr)
     
     # Generate output
     if args.json:
@@ -124,12 +134,19 @@ Easter Eggs:
     
     # Write output
     if args.output:
-        output_path = Path(args.output)
+        output_path = Path(args.output).resolve()
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(output)
         if not args.quiet:
             print(f"✨ Report saved to {output_path}", file=sys.stderr)
-            print(f"   Open it in your browser to see your Claude Wrapped!", file=sys.stderr)
+        
+        # Open in browser unless --no-open is specified
+        if not args.json and not args.no_open:
+            import webbrowser
+            file_url = f"file://{output_path}"
+            if not args.quiet:
+                print(f"🌐 Opening in browser...", file=sys.stderr)
+            webbrowser.open(file_url)
     else:
         print(output)
     

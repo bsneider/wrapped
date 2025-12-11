@@ -6,11 +6,11 @@
 ![Python](https://img.shields.io/badge/Python-3.9+-00f5ff?style=for-the-badge&logo=python)
 ![Vibes](https://img.shields.io/badge/Vibes-Immaculate-8b5cf6?style=for-the-badge)
 
-Generate a stunning, synthwave-themed year-in-review report for your Claude CLI usage. Discover your coding patterns, roast yourself with data, and unlock God Mode with the Konami code.
+Generate a stunning, synthwave-themed year-in-review report for your Claude CLI usage. Discover your coding patterns, get roasted by your own data, and unlock God Mode with the Konami code.
 
 ## ✨ Features
 
-### 📊 Metrics That Matter
+### 📊 Deep Analytics
 
 - **The Yapping Index** - Are you a micromanager or a delegator?
 - **Cache Efficiency Score** - How well do you reuse context?
@@ -21,6 +21,33 @@ Generate a stunning, synthwave-themed year-in-review report for your Claude CLI 
 - **Streak Tracking** - Longest and current coding streaks
 - **The Damage** - Total API cost (in USD and burritos 🌯)
 
+### 🎭 NEW: Developer Personality
+
+Get matched to a personality type based on your coding patterns:
+- **The Night Architect** - Building empires while the world sleeps
+- **The Terminal Wizard** - Command line is your canvas
+- **The Chaos Pilot** - Thriving in entropy
+- **The Efficiency Expert** - Every token counts
+- **The Deep Diver** - Marathon sessions, massive context
+- And more!
+
+### 🏙️ NEW: Coding City Match
+
+Like Spotify's "Sound Town" - get matched to a tech city!
+- Tokyo 🇯🇵 - The city that never sleeps
+- Stockholm 🇸🇪 - Early riser productivity
+- Berlin 🇩🇪 - Techno-fueled marathons
+- San Francisco 🇺🇸 - Startup energy
+- And more!
+
+### 📁 NEW: Top Projects Explorer
+
+See your most active projects with:
+- Session counts
+- Message totals
+- Token usage
+- Ranked by activity
+
 ### 🎨 Aesthetic
 
 - Synthwave/Cyberpunk color palette
@@ -29,60 +56,44 @@ Generate a stunning, synthwave-themed year-in-review report for your Claude CLI 
 - Neon gradients everywhere
 - Chart.js visualizations
 - Responsive design
+- **Auto-opens in browser** when finished!
 
 ### 🥚 Easter Eggs
 
 - **Konami Code** (↑↑↓↓←→←→BA) - Unlock God Mode with raw stats
+- **7x Tap Title** - Mobile-friendly God Mode trigger
 - **Karpathy Quotes** - Wisdom from the prophet himself
 
-## 🚀 Installation
-
-### Quick Start (No Dependencies!)
+## 🚀 Quick Start
 
 ```bash
-# Clone the repo
+# Clone and enter
 git clone https://github.com/anthropics/claude-wrapped.git
 cd claude-wrapped
 
-# Run it!
-python main.py -o my-wrapped.html
-
-# Open in browser
-open my-wrapped.html  # macOS
-xdg-open my-wrapped.html  # Linux
-start my-wrapped.html  # Windows
+# Run it (opens in browser automatically!)
+python main.py -o wrapped.html
 ```
 
-### That's it!
-
-Claude Wrapped is **pure Python** with zero external dependencies. It uses only the standard library.
+That's it! **Zero dependencies** - pure Python 3.9+.
 
 ## 📖 Usage
 
-### Generate HTML Report
-
 ```bash
-# Output to file
-python main.py -o wrapped-2025.html
+# Generate and auto-open in browser
+python main.py -o wrapped.html
 
-# Output to stdout
-python main.py > wrapped.html
+# Skip auto-open
+python main.py -o wrapped.html --no-open
+
+# Get raw JSON data
+python main.py --json > data.json
 
 # Custom Claude directory
 python main.py -d /path/to/.claude -o report.html
 
 # Quiet mode (no banner)
 python main.py -q -o report.html
-```
-
-### Get Raw JSON Data
-
-```bash
-# For further processing or custom visualizations
-python main.py --json > data.json
-
-# Pretty-printed
-python main.py --json | python -m json.tool
 ```
 
 ### Command Line Options
@@ -92,107 +103,41 @@ python main.py --json | python -m json.tool
 | `-d, --claude-dir` | Path to .claude directory (default: ~/.claude) |
 | `-o, --output` | Output file path (default: stdout) |
 | `--json` | Output raw JSON instead of HTML |
+| `--no-open` | Don't auto-open browser |
 | `-q, --quiet` | Suppress banner and progress messages |
 
-## 📁 What Gets Analyzed
+## 💰 Accurate Cost Tracking
 
-Claude Wrapped digs deep into your `~/.claude` directory:
+Calculates costs from token usage with comprehensive model pricing:
+
+| Model | Input | Output |
+|-------|-------|--------|
+| Opus 4.5 | $5/1M | $25/1M |
+| Opus 4/4.1 | $15/1M | $75/1M |
+| Sonnet 4/4.5 | $3/1M | $15/1M |
+| Haiku 4.5 | $1/1M | $5/1M |
+| Haiku 3.5 | $0.80/1M | $4/1M |
+| Haiku 3 | $0.25/1M | $1.25/1M |
+
+Cache pricing automatically included!
+
+## 📁 What Gets Analyzed
 
 ```
 ~/.claude/
 ├── projects/           # Conversation sessions per project
-│   └── **/*.jsonl      # JSONL conversation files
+│   └── **/*.jsonl      # Supports worktrees too!
 ├── todos/              # Task management files
-│   └── *.json          # Todo lists and agent tasks
 ├── statsig/            # Feature flag exposure
-│   └── *.cached.*      # A/B test participation
-├── settings.json       # Your preferences
-└── history.jsonl       # Global command history
+└── settings.json       # Your preferences
 ```
 
-### Metrics Extracted
+## 🎮 God Mode
 
-| Category | Metrics |
-|----------|---------|
-| **Volume** | Sessions, messages, tokens, projects |
-| **Economics** | Total cost, cost per session, cache efficiency |
-| **Time** | Hourly distribution, weekday patterns, streaks |
-| **Behavior** | Tool usage, model preferences, sidechain ratio |
-| **Chaos** | Rage quits, abandoned projects, context collapses |
-| **Todos** | Completion rate, orphaned agent tasks |
+**Desktop:** `↑ ↑ ↓ ↓ ← → ← → B A`  
+**Mobile:** Tap the title 7 times quickly
 
-## 🎮 Easter Eggs
-
-### Konami Code (God Mode)
-
-While viewing your report, enter the classic:
-```
-↑ ↑ ↓ ↓ ← → ← → B A
-```
-
-This unlocks **God Mode** showing:
-- Raw token counts (input/output/cache)
-- Precise cost per session and message
-- Error and sidechain counts
-- Context collapse statistics
-
-## 🛠️ Development
-
-### Running Tests
-
-```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# With coverage
-pytest --cov=. --cov-report=html
-```
-
-### Project Structure
-
-```
-claude-wrapped/
-├── main.py          # CLI entry point and orchestrator
-├── analyzer.py      # Data extraction from ~/.claude
-├── generator.py     # HTML report generation
-├── pyproject.toml   # Package configuration
-└── README.md        # You are here
-```
-
-## 🤔 FAQ
-
-### Why doesn't my report show any data?
-
-Make sure you've used Claude CLI at least once. The tool looks for JSONL files in `~/.claude/projects/`.
-
-### Can I run this on Windows?
-
-Yes! The paths are handled cross-platform. Just use:
-```cmd
-python main.py -o wrapped.html
-```
-
-### Is my data sent anywhere?
-
-**No.** Claude Wrapped runs 100% locally. Your data never leaves your machine.
-
-### Why Python with no dependencies?
-
-Maximum portability. If you have Python 3.9+, you can run this. No pip install needed for the core functionality.
-
-### How accurate is the cost calculation?
-
-It reads the `costUSD` field directly from Claude CLI's JSONL logs. If Claude CLI tracked it, we report it.
-
-## 🙏 Credits
-
-- **Built by**: Claude (the superior one, not Gemini)
-- **Inspired by**: Spotify Wrapped, but for nerds
-- **Karpathy quotes**: Used without permission but with maximum respect
-- **Vibes**: Synthwave, courtesy of the 1980s future that never was
+Shows raw stats: exact token counts, precise costs, error counts, and more!
 
 ## 📄 License
 
