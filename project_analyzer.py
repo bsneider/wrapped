@@ -488,110 +488,183 @@ def detect_components(text: str) -> dict[str, int]:
     return matches
 
 
+def generate_llm_summary(
+    name: str,
+    frameworks: list,
+    components: list,
+    category: str,
+    description: str = ''
+) -> str:
+    """Generate a project summary using Claude Haiku (cheap and fast)."""
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic()
+
+        # Build context for the LLM
+        context_parts = [f"Project name: {name}"]
+        if description:
+            context_parts.append(f"Description: {description[:200]}")
+        if frameworks:
+            context_parts.append(f"Technologies: {', '.join(frameworks[:8])}")
+        if components:
+            context_parts.append(f"Components: {', '.join(components[:5])}")
+        if category:
+            context_parts.append(f"Category: {category}")
+
+        context = "\n".join(context_parts)
+
+        message = client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=50,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Generate a 5-7 word summary explaining what this software project does. Be specific about its purpose.\n\n{context}\n\nSummary (5-7 words only):"
+                }
+            ]
+        )
+
+        summary = message.content[0].text.strip()
+        # Clean up any quotes or extra formatting
+        summary = summary.strip('"\'').strip()
+        # Ensure it's not too long
+        words = summary.split()[:8]
+        return ' '.join(words)
+
+    except Exception as e:
+        # Fall back to heuristic-based summary
+        return None
+
+
 def generate_project_summary(
     name: str,
     frameworks: list,
     components: list,
     concepts: list,
-    category: str
+    category: str,
+    description: str = '',
+    use_llm: bool = False
 ) -> str:
-    """Generate a concise 5-word summary for a project based on detected info."""
+    """Generate a concise ~5-word summary explaining what the project does."""
 
-    # Priority keywords for summary generation
+    # Try LLM-based summary if requested
+    if use_llm:
+        llm_summary = generate_llm_summary(name, frameworks, components, category, description)
+        if llm_summary:
+            return llm_summary
+
+    # If we have a good description, extract key info from it
+    if description and len(description) > 20:
+        # Take first sentence or first ~50 chars
+        first_sentence = description.split('.')[0].strip()
+        if len(first_sentence) <= 60:
+            return first_sentence
+        # Truncate intelligently
+        words = first_sentence.split()[:8]
+        return ' '.join(words) + '...'
+
+    # Build summary from detected components and purpose
+    component_purposes = {
+        'chrome-extension': 'Browser extension for',
+        'vscode-extension': 'VSCode extension for',
+        'web-frontend': 'Web interface for',
+        'mobile-app': 'Mobile app for',
+        'desktop-app': 'Desktop application for',
+        'api-server': 'API backend for',
+        'graphql-api': 'GraphQL API for',
+        'websocket-server': 'Realtime service for',
+        'ml-pipeline': 'ML pipeline for',
+        'data-ingestion': 'Data ingestion system for',
+        'knowledge-graph': 'Knowledge graph for',
+        'kubernetes': 'K8s-deployed',
+        'docker-compose': 'Containerized',
+        'ci-cd-pipeline': 'CI/CD for',
+        'cli-tool': 'CLI tool for',
+        'sdk-library': 'SDK/Library for',
+        'mcp-server': 'MCP server for',
+        'agent-system': 'Multi-agent system for',
+    }
+
+    # Domain keywords from frameworks
+    domain_hints = {
+        'coscientist': 'scientific research',
+        'langchain': 'LLM orchestration',
+        'anthropic': 'Claude AI integration',
+        'openai': 'GPT integration',
+        'cloudflare': 'edge computing',
+        'supabase': 'data management',
+        'postgresql': 'data storage',
+        'react-native': 'cross-platform mobile',
+        'nextjs': 'web application',
+        'fastapi': 'API services',
+        'graphql': 'data querying',
+    }
+
+    # Category to purpose mapping
+    category_purposes = {
+        'ai-agent': 'AI agent orchestration',
+        'scientific': 'scientific workflows',
+        'web-app': 'web application',
+        'cli-tool': 'command-line tasks',
+        'api': 'API services',
+        'mobile': 'mobile experience',
+        'infrastructure': 'infrastructure management',
+        'data': 'data processing',
+    }
+
     summary_parts = []
 
-    # Add component type
-    component_labels = {
-        'chrome-extension': 'Chrome extension',
-        'vscode-extension': 'VSCode extension',
-        'web-frontend': 'Web app',
-        'mobile-app': 'Mobile app',
-        'desktop-app': 'Desktop app',
-        'api-server': 'API server',
-        'graphql-api': 'GraphQL API',
-        'websocket-server': 'Realtime server',
-        'ml-pipeline': 'ML pipeline',
-        'data-ingestion': 'Data ingestion',
-        'knowledge-graph': 'Knowledge graph',
-        'kubernetes': 'K8s deployment',
-        'docker-compose': 'Containerized',
-        'ci-cd-pipeline': 'CI/CD',
-        'cli-tool': 'CLI tool',
-        'sdk-library': 'SDK/Library',
-        'mcp-server': 'MCP server',
-        'agent-system': 'Agent system',
-    }
-
-    # Key framework labels
-    framework_labels = {
-        'claude-flow': 'Claude workflow',
-        'sparc': 'SPARC',
-        'coscientist': 'scientific',
-        'react': 'React',
-        'nextjs': 'Next.js',
-        'fastapi': 'FastAPI',
-        'cloudflare': 'Cloudflare',
-        'supabase': 'Supabase',
-        'postgresql': 'PostgreSQL',
-        'langchain': 'LangChain',
-        'anthropic': 'Claude AI',
-        'openai': 'OpenAI',
-    }
-
-    # Category labels
-    category_labels = {
-        'ai-agent': 'AI agent',
-        'scientific': 'scientific',
-        'web-app': 'web',
-        'cli-tool': 'CLI',
-        'api': 'API',
-        'mobile': 'mobile',
-        'infrastructure': 'infrastructure',
-        'data': 'data',
-    }
-
-    # Build summary from components
+    # Start with component type
     if components:
-        top_component = components[0]
-        if top_component in component_labels:
-            summary_parts.append(component_labels[top_component])
+        top_comp = components[0]
+        if top_comp in component_purposes:
+            summary_parts.append(component_purposes[top_comp])
 
-    # Add key framework
-    for fw in frameworks[:2]:
-        if fw in framework_labels and len(summary_parts) < 3:
-            summary_parts.append(framework_labels[fw])
+    # Add domain/purpose from frameworks
+    for fw in frameworks[:3]:
+        if fw in domain_hints:
+            summary_parts.append(domain_hints[fw])
+            break
 
-    # Add category context
-    if category and category in category_labels and len(summary_parts) < 4:
-        if category_labels[category] not in ' '.join(summary_parts).lower():
-            summary_parts.append(category_labels[category])
+    # Or from category
+    if not summary_parts or len(summary_parts) == 1:
+        if category in category_purposes:
+            summary_parts.append(category_purposes[category])
 
-    # Add action word based on concepts
-    if 'data-ingestion' in components or 'ingestion' in name.lower():
-        summary_parts.append('ingestion')
-    elif 'ml-pipeline' in components:
-        summary_parts.append('training')
-    elif 'knowledge-graph' in components:
-        summary_parts.append('graph')
-
-    # Fill with generic terms if needed
-    if len(summary_parts) < 2:
-        if 'testing' in concepts:
-            summary_parts.append('tested')
-        if 'authentication' in concepts:
-            summary_parts.append('secure')
+    # Add specific functionality hints from name
+    name_lower = name.lower()
+    if 'swarm' in name_lower:
+        summary_parts.append('swarm orchestration')
+    elif 'flow' in name_lower:
+        summary_parts.append('workflow automation')
+    elif 'ingestion' in name_lower or 'data-ingestion' in components:
+        summary_parts.append('data capture')
+    elif 'graph' in name_lower or 'knowledge-graph' in components:
+        summary_parts.append('knowledge graphs')
+    elif 'chat' in name_lower:
+        summary_parts.append('conversational AI')
+    elif 'sync' in name_lower:
+        summary_parts.append('data synchronization')
 
     # Construct final summary
-    if not summary_parts:
-        # Fallback: use name parts
-        name_words = name.replace('-', ' ').replace('_', ' ').split()
-        summary_parts = name_words[:3]
+    if summary_parts:
+        # Join and clean up
+        summary = ' '.join(summary_parts[:3])
+        # Remove duplicate words
+        words = summary.split()
+        seen = set()
+        unique_words = []
+        for w in words:
+            w_lower = w.lower()
+            if w_lower not in seen:
+                seen.add(w_lower)
+                unique_words.append(w)
+        return ' '.join(unique_words[:7])
 
-    # Ensure max 5 words
-    summary = ' '.join(summary_parts[:5])
-
-    # Capitalize properly
-    return summary.strip() if summary else name
+    # Fallback: humanize the project name
+    name_words = name.replace('-', ' ').replace('_', ' ').title()
+    return name_words
 
 
 def detect_technologies(text: str) -> list[str]:
@@ -881,7 +954,8 @@ def analyze_all_projects(
             analysis.frameworks,
             analysis.components,
             analysis.coding_concepts,
-            analysis.category
+            analysis.category,
+            analysis.description
         )
 
         # Find related projects
