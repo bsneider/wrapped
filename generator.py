@@ -718,6 +718,62 @@ def generate_html(data: dict) -> str:
             border-radius: 4px;
         }}
 
+        .project-header {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }}
+
+        .project-category {{
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            background: rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            color: var(--neon-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+
+        .project-tech-stack {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }}
+
+        .project-tech-tag {{
+            font-size: 0.65rem;
+            padding: 0.1rem 0.4rem;
+            background: rgba(0, 245, 255, 0.15);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 4px;
+            color: var(--neon-cyan);
+            font-family: 'JetBrains Mono', monospace;
+        }}
+
+        .project-components {{
+            display: flex;
+            gap: 0.3rem;
+            margin-left: auto;
+        }}
+
+        .project-component-tag {{
+            font-size: 1rem;
+            cursor: help;
+        }}
+
+        .project-summary {{
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+            margin: 0.3rem 0;
+            padding-left: 0.5rem;
+            border-left: 2px solid var(--neon-purple);
+        }}
+
         /* Project Groups (related projects with same folder prefix) */
         .project-groups-section {{
             margin-bottom: 2rem;
@@ -816,6 +872,57 @@ def generate_html(data: dict) -> str:
         }}
 
         .framework-count {{
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.15rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+        }}
+
+        .frameworks-subsection {{
+            margin-bottom: 1.5rem;
+        }}
+
+        .frameworks-subsection:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .concepts-title {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            color: var(--neon-green);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }}
+
+        .concept-tag {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(57, 255, 20, 0.15), rgba(0, 245, 255, 0.1));
+            border: 1px solid var(--neon-green);
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            transition: all 0.2s;
+        }}
+
+        .concept-tag:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(57, 255, 20, 0.3);
+        }}
+
+        .concept-icon {{
+            font-size: 1.2rem;
+        }}
+
+        .concept-name {{
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--neon-green);
+            font-size: 0.9rem;
+        }}
+
+        .concept-count {{
             background: rgba(255, 255, 255, 0.2);
             padding: 0.15rem 0.5rem;
             border-radius: 8px;
@@ -2239,6 +2346,39 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         tokens = format_number(proj.get('tokens', 0))
         cost = format_cost(proj.get('cost', 0))
 
+        # Get tech stack info
+        frameworks = proj.get('frameworks', [])
+        components = proj.get('components', [])
+        category = proj.get('category', '')
+        summary = proj.get('summary', '')
+
+        # Build tech stack display (show top 5 frameworks)
+        tech_tags = []
+        for fw in frameworks[:5]:
+            tech_tags.append(f'<span class="project-tech-tag">{html.escape(fw)}</span>')
+        tech_html = f'<div class="project-tech-stack">{" ".join(tech_tags)}</div>' if tech_tags else ''
+
+        # Component badges (show up to 3)
+        component_icons = {
+            'chrome-extension': '🧩', 'vscode-extension': '💻', 'web-frontend': '🌐',
+            'mobile-app': '📱', 'desktop-app': '🖥️', 'api-server': '⚙️',
+            'graphql-api': '◈', 'websocket-server': '🔌', 'ml-pipeline': '🧠',
+            'data-ingestion': '📥', 'knowledge-graph': '🕸️', 'kubernetes': '☸️',
+            'docker-compose': '🐳', 'ci-cd-pipeline': '🔄', 'cli-tool': '⌨️',
+            'sdk-library': '📚', 'mcp-server': '🔗', 'agent-system': '🤖',
+        }
+        component_tags = []
+        for comp in components[:3]:
+            icon = component_icons.get(comp, '📦')
+            component_tags.append(f'<span class="project-component-tag" title="{html.escape(comp)}">{icon}</span>')
+        component_html = f'<div class="project-components">{" ".join(component_tags)}</div>' if component_tags else ''
+
+        # Category badge
+        category_html = f'<span class="project-category">{html.escape(category)}</span>' if category else ''
+
+        # Summary line
+        summary_html = f'<div class="project-summary">{html.escape(summary)}</div>' if summary else ''
+
         # Rank badge
         if i == 0:
             badge = '🥇'
@@ -2252,12 +2392,18 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         cards.append(f'''
             <div class="project-card">
                 <div class="project-rank">{badge}</div>
-                <div class="project-name">{name}</div>
+                <div class="project-header">
+                    <div class="project-name">{name}</div>
+                    {category_html}
+                    {component_html}
+                </div>
+                {summary_html}
                 <div class="project-stats">
                     <span>{sessions} sessions</span>
                     <span>{messages} msgs</span>
                     <span>{tokens} tokens</span>
                 </div>
+                {tech_html}
             </div>
         ''')
 
@@ -2267,36 +2413,75 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
 def generate_frameworks_html(data: dict) -> str:
     """Generate HTML for detected frameworks/tools section."""
     top_frameworks = data.get('top_frameworks', [])
+    top_concepts = data.get('top_coding_concepts', [])
 
-    if not top_frameworks:
-        return ''
+    sections = []
 
-    items = []
     # Framework icons
     framework_icons = {
-        'claude-flow': '🌊',
-        'sparc': '⚡',
-        'agentic-engineering': '🤖',
-        'coscientist': '🔬',
-        'mcp': '🔌',
-        'langchain': '🔗',
-        'crewai': '👥',
+        'claude-flow': '🌊', 'sparc': '⚡', 'agentic-engineering': '🤖',
+        'coscientist': '🔬', 'mcp': '🔌', 'langchain': '🔗', 'crewai': '👥',
+        'nextjs': '▲', 'react': '⚛️', 'vue': '💚', 'svelte': '🔥',
+        'fastapi': '⚡', 'express': '🚂', 'flask': '🧪', 'django': '🎸',
+        'cloudflare': '☁️', 'vercel': '▲', 'aws': '☁️', 'gcp': '☁️',
+        'docker': '🐳', 'kubernetes': '☸️', 'postgresql': '🐘',
+        'supabase': '⚡', 'mongodb': '🍃', 'redis': '🔴', 'prisma': '◭',
+        'anthropic': '🤖', 'openai': '🤖', 'pytorch': '🔥', 'tensorflow': '🧠',
+        'tailwindcss': '💨', 'typescript': '💙', 'vite': '⚡', 'bun': '🍞',
     }
 
-    for framework, count in top_frameworks[:8]:
-        icon = framework_icons.get(framework, '📦')
-        items.append(f'''
-            <div class="framework-tag">
-                <span class="framework-icon">{icon}</span>
-                <span class="framework-name">{html.escape(framework)}</span>
-                <span class="framework-count">{count}</span>
+    if top_frameworks:
+        items = []
+        for framework, count in top_frameworks[:10]:
+            icon = framework_icons.get(framework, '📦')
+            items.append(f'''
+                <div class="framework-tag">
+                    <span class="framework-icon">{icon}</span>
+                    <span class="framework-name">{html.escape(framework)}</span>
+                    <span class="framework-count">{count}</span>
+                </div>
+            ''')
+        sections.append(f'''
+            <div class="frameworks-subsection">
+                <div class="frameworks-title">Frameworks & Tools</div>
+                <div class="frameworks-grid">{"".join(items)}</div>
             </div>
         ''')
 
+    # Coding concepts icons
+    concept_icons = {
+        'testing': '🧪', 'linting': '✨', 'ci-cd': '🔄', 'documentation': '📚',
+        'authentication': '🔐', 'authorization': '🛡️', 'encryption': '🔒',
+        'caching': '💾', 'optimization': '🚀', 'async-patterns': '⚡',
+        'microservices': '🔀', 'serverless': '☁️', 'monorepo': '📦',
+        'type-safety': '💙', 'functional': 'λ', 'reactive': '🔄',
+        'clean-architecture': '🏗️', 'dependency-injection': '💉',
+    }
+
+    if top_concepts:
+        items = []
+        for concept, count in top_concepts[:8]:
+            icon = concept_icons.get(concept, '💡')
+            items.append(f'''
+                <div class="concept-tag">
+                    <span class="concept-icon">{icon}</span>
+                    <span class="concept-name">{html.escape(concept)}</span>
+                    <span class="concept-count">{count}</span>
+                </div>
+            ''')
+        sections.append(f'''
+            <div class="frameworks-subsection">
+                <div class="concepts-title">Coding Patterns & Practices</div>
+                <div class="frameworks-grid">{"".join(items)}</div>
+            </div>
+        ''')
+
+    if not sections:
+        return ''
+
     return f'''
         <div class="frameworks-section">
-            <div class="frameworks-title">Detected Frameworks & Tools</div>
-            <div class="frameworks-grid">{"".join(items)}</div>
+            {"".join(sections)}
         </div>
     '''
 

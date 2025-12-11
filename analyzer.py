@@ -1292,9 +1292,43 @@ def main():
         smart_groups = group_projects_smart(analyses)
         output['smart_project_groups'] = smart_groups
 
-        # Add cleaned project display names
+        # Add cleaned project display names and per-project tech info
+        project_tech_map = {}
+        for analysis in analyses:
+            project_tech_map[analysis.name] = {
+                'frameworks': list(analysis.keyword_matches.keys()),
+                'technologies': analysis.technologies,
+                'category': analysis.category,
+                'coding_concepts': list(analysis.concept_matches.keys()),
+                'components': list(analysis.component_matches.keys()),
+                'summary': analysis.summary,
+            }
+
         for proj in output.get('top_projects', []):
             proj['display_name'] = decode_project_path('-Users-pierre-sundai-' + proj['name'])
+            # Add tech info to each project
+            tech_info = project_tech_map.get(proj['name'], {})
+            proj['frameworks'] = tech_info.get('frameworks', [])
+            proj['technologies'] = tech_info.get('technologies', [])
+            proj['category'] = tech_info.get('category', '')
+            proj['coding_concepts'] = tech_info.get('coding_concepts', [])
+            proj['components'] = tech_info.get('components', [])
+            proj['summary'] = tech_info.get('summary', '')
+
+        # Store the full project tech map
+        output['project_tech_map'] = project_tech_map
+
+        # Aggregate coding concepts across all projects
+        concept_counts = defaultdict(int)
+        for analysis in analyses:
+            for concept, count in analysis.concept_matches.items():
+                concept_counts[concept] += count
+        output['detected_coding_concepts'] = dict(concept_counts)
+        output['top_coding_concepts'] = sorted(
+            concept_counts.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:15]
 
         print(f"✅ Found {len(framework_counts)} frameworks, {len(smart_groups)} project groups", file=sys.stderr)
 

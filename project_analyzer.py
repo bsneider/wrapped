@@ -17,46 +17,368 @@ from typing import Optional
 from dataclasses import dataclass, field
 
 
-# Known frameworks/tools and their detection keywords
+# Known frameworks/tools and their detection keywords (case-insensitive matching)
 FRAMEWORK_KEYWORDS = {
+    # AI/LLM Frameworks
     'claude-flow': [
-        # NPM package references
         'claude-flow', '@anthropics/claude-flow', 'npm install claude-flow',
         'npx claude-flow', 'yarn add claude-flow', 'pnpm add claude-flow',
-        # Package.json dependencies
-        '"claude-flow"', "'claude-flow'",
-        # CLI commands and config
-        'flow.yaml', 'flow.yml', 'claude-flow init', 'claude-flow run',
-        'claude-flow generate', 'claude-flow start',
-        # Code patterns
-        'import.*claude-flow', 'require.*claude-flow',
-        'ClaudeFlow', 'claude_flow',
-        # Common usage patterns in prompts
-        'using claude-flow', 'with claude-flow', 'claude-flow workflow',
-        'claude-flow agent', 'claude-flow orchestrat',
+        '"claude-flow"', "'claude-flow'", 'flow.yaml', 'flow.yml',
+        'claude-flow init', 'claude-flow run', 'claude-flow generate',
+        'claudeflow', 'claude_flow', 'using claude-flow', 'with claude-flow',
     ],
     'sparc': [
-        'SPARC', 'sparc methodology', 'sparc framework', 'sparc-',
-        'specification', 'pseudocode', 'architecture', 'refinement', 'completion',
-        'sparc workflow', 'sparc_', 'sparc.md'
+        'sparc', 'sparc methodology', 'sparc framework', 'sparc-',
+        'sparc workflow', 'sparc_', 'sparc.md', '/sparc',
     ],
     'agentic-engineering': [
         '@agent-', 'agent-devops', 'agent-frontend', 'agent-backend',
-        'agentic-engineering', 'ciign', 'multi-agent', 'agent orchestration'
+        'agentic-engineering', 'ciign', 'multi-agent', 'agent orchestration',
     ],
     'coscientist': [
-        'coscientist', 'co-scientist', 'scientific workflow', 'hypothesis',
-        'experiment design', 'literature review', 'research assistant'
+        'coscientist', 'co-scientist', 'scientific workflow',
+        'hypothesis generation', 'experiment design', 'literature review',
     ],
     'mcp': [
         'mcp server', 'model context protocol', 'mcp-', '@mcp/',
-        'mcpServers', 'MCP tool', 'mcp integration'
+        'mcpservers', 'mcp tool', 'mcp integration', 'mcp.json',
     ],
     'langchain': [
-        'langchain', 'LangChain', 'LCEL', 'langsmith', 'langgraph'
+        'langchain', 'lcel', 'langsmith', 'langgraph', 'langserve',
     ],
     'crewai': [
-        'crewai', 'CrewAI', 'crew.ai', 'agent crew'
+        'crewai', 'crew.ai', 'agent crew',
+    ],
+    'autogen': [
+        'autogen', 'pyautogen', 'autogen studio',
+    ],
+    'llamaindex': [
+        'llamaindex', 'llama_index', 'llama-index',
+    ],
+
+    # Web Frameworks
+    'nextjs': [
+        'next.js', 'nextjs', 'next/app', 'next/pages', 'next.config',
+        'getserversideprops', 'getstaticprops', 'app router', 'pages router',
+    ],
+    'react': [
+        'react', 'usestate', 'useeffect', 'jsx', 'tsx', 'react-dom',
+        'createroot', 'usecontext', 'usereducer', 'react hook',
+    ],
+    'vue': [
+        'vue.js', 'vuejs', 'vue 3', 'nuxt', 'composition api', 'pinia',
+        'vuex', '.vue', 'definecomponent',
+    ],
+    'svelte': [
+        'svelte', 'sveltekit', 'svelte.config',
+    ],
+    'fastapi': [
+        'fastapi', 'from fastapi', '@app.get', '@app.post', 'uvicorn',
+    ],
+    'express': [
+        'express.js', 'expressjs', 'app.get(', 'app.post(', 'express()',
+        'express.router', 'app.use(',
+    ],
+    'flask': [
+        'from flask', 'flask app', '@app.route', 'flask_',
+    ],
+    'django': [
+        'django', 'from django', 'django.db', 'django rest', 'drf',
+    ],
+    'hono': [
+        'hono', 'from hono', 'hono/cloudflare', 'hono.js',
+    ],
+
+    # Cloud & Infrastructure
+    'cloudflare': [
+        'cloudflare', 'workers', 'wrangler', 'cf-', 'd1 database',
+        'cloudflare pages', 'workers ai', 'r2', 'kv namespace',
+    ],
+    'vercel': [
+        'vercel', 'vercel.json', 'vercel deploy', 'vercel cli',
+    ],
+    'aws': [
+        'aws', 'amazon web services', 's3', 'lambda', 'ec2', 'dynamodb',
+        'cloudformation', 'cdk', 'boto3', 'aws-sdk',
+    ],
+    'gcp': [
+        'google cloud', 'gcp', 'bigquery', 'cloud run', 'cloud functions',
+        'firestore', 'gcloud',
+    ],
+    'docker': [
+        'docker', 'dockerfile', 'docker-compose', 'container',
+        'docker build', 'docker run',
+    ],
+    'kubernetes': [
+        'kubernetes', 'k8s', 'kubectl', 'helm', 'deployment.yaml',
+        'pod', 'service.yaml',
+    ],
+
+    # Databases
+    'postgresql': [
+        'postgres', 'postgresql', 'psql', 'pg_', 'pgvector',
+    ],
+    'supabase': [
+        'supabase', 'supabase-js', '@supabase/supabase-js',
+    ],
+    'mongodb': [
+        'mongodb', 'mongoose', 'mongo', 'pymongo',
+    ],
+    'redis': [
+        'redis', 'ioredis', 'redis-cli', 'upstash',
+    ],
+    'sqlite': [
+        'sqlite', 'sqlite3', 'better-sqlite3',
+    ],
+    'prisma': [
+        'prisma', 'prisma.schema', 'prismaclient', '@prisma/client',
+    ],
+    'drizzle': [
+        'drizzle', 'drizzle-orm', 'drizzle-kit',
+    ],
+
+    # AI/ML Tools
+    'anthropic': [
+        'anthropic', 'claude api', 'claude-3', 'from anthropic',
+        '@anthropic-ai/sdk', 'anthropic.messages',
+    ],
+    'openai': [
+        'openai', 'gpt-4', 'gpt-3', 'chatgpt', 'from openai',
+        'openai.chat', 'openai api',
+    ],
+    'huggingface': [
+        'huggingface', 'transformers', 'from transformers', 'hf_',
+        'hugging face', 'datasets',
+    ],
+    'pytorch': [
+        'pytorch', 'torch', 'import torch', 'nn.module',
+    ],
+    'tensorflow': [
+        'tensorflow', 'import tensorflow', 'tf.keras', 'keras',
+    ],
+
+    # Testing & Quality
+    'jest': [
+        'jest', 'describe(', 'it(', 'expect(', 'jest.config',
+    ],
+    'vitest': [
+        'vitest', 'vitest.config',
+    ],
+    'pytest': [
+        'pytest', 'def test_', '@pytest', 'pytest.ini',
+    ],
+    'playwright': [
+        'playwright', '@playwright/test', 'page.goto',
+    ],
+    'cypress': [
+        'cypress', 'cy.', 'cypress.config',
+    ],
+
+    # Build Tools & Package Managers
+    'vite': [
+        'vite', 'vite.config', 'vitejs',
+    ],
+    'webpack': [
+        'webpack', 'webpack.config',
+    ],
+    'turborepo': [
+        'turborepo', 'turbo.json', 'turbo run',
+    ],
+    'pnpm': [
+        'pnpm', 'pnpm-workspace', 'pnpm install',
+    ],
+    'bun': [
+        'bun', 'bunx', 'bun.lockb', 'bun run',
+    ],
+
+    # Mobile
+    'react-native': [
+        'react native', 'react-native', 'expo', 'eas build',
+        'metro.config', 'app.json',
+    ],
+    'flutter': [
+        'flutter', 'dart', 'pubspec.yaml', 'widget',
+    ],
+    'swift': [
+        'swift', 'swiftui', 'uikit', 'xcodeproj',
+    ],
+
+    # Other Tools
+    'tailwindcss': [
+        'tailwind', 'tailwindcss', 'tailwind.config', '@apply',
+    ],
+    'shadcn': [
+        'shadcn', 'shadcn/ui', '@/components/ui',
+    ],
+    'trpc': [
+        'trpc', '@trpc', 'trpc.', 'createtrpcrouter',
+    ],
+    'graphql': [
+        'graphql', 'gql`', 'apollo', 'urql', 'type query',
+    ],
+    'websocket': [
+        'websocket', 'socket.io', 'ws://', 'wss://', 'socket.on',
+    ],
+    'stripe': [
+        'stripe', 'stripe.com', 'stripe api', 'payment_intent',
+    ],
+    'auth0': [
+        'auth0', '@auth0',
+    ],
+    'clerk': [
+        'clerk', '@clerk', 'clerkprovider',
+    ],
+    'zod': [
+        'zod', 'z.object', 'z.string', 'zodschema',
+    ],
+}
+
+# Project component types detection
+PROJECT_COMPONENTS = {
+    # Browser Extensions
+    'chrome-extension': [
+        'manifest.json', 'manifest_version', 'chrome.runtime', 'chrome.tabs',
+        'chrome.storage', 'content_script', 'background.js', 'popup.html',
+        'browser extension', 'chrome extension', 'firefox extension',
+    ],
+    'vscode-extension': [
+        'vscode extension', 'extension.ts', 'activate(context)', 'vscode.commands',
+        'contributes', 'extensionKind',
+    ],
+
+    # Frontend Components
+    'web-frontend': [
+        'src/frontend', 'src/web', 'src/client', 'pages/', 'components/',
+        'app.tsx', 'main.tsx', 'index.html', 'vite.config',
+    ],
+    'mobile-app': [
+        'react native', 'expo', 'ios/', 'android/', 'app.json',
+        'metro.config', 'eas.json', 'capacitor',
+    ],
+    'desktop-app': [
+        'electron', 'tauri', 'main.electron', 'preload.js',
+    ],
+
+    # Backend Components
+    'api-server': [
+        'src/api', 'api/', 'endpoints', 'routes/', 'controllers/',
+        'main.py', 'app.py', 'server.ts', 'fastapi', 'express',
+    ],
+    'graphql-api': [
+        'graphql', 'schema.graphql', 'resolvers/', 'typedefs',
+        'apollo server', 'type query', 'type mutation',
+    ],
+    'websocket-server': [
+        'websocket', 'socket.io', 'ws server', 'realtime',
+    ],
+
+    # Data & AI Components
+    'ml-pipeline': [
+        'ml/', 'models/', 'training/', 'inference/', 'pipeline',
+        'torch', 'tensorflow', 'sklearn', 'model.py',
+    ],
+    'data-ingestion': [
+        'ingestion/', 'etl/', 'pipeline/', 'scrapers/', 'crawlers/',
+        'data loader', 'batch process',
+    ],
+    'knowledge-graph': [
+        'graph/', 'neo4j', 'graphrag', 'knowledge graph', 'ontology',
+        'triple store', 'rdf', 'sparql',
+    ],
+
+    # Infrastructure Components
+    'kubernetes': [
+        'k8s/', 'kubernetes/', 'helm/', 'deployment.yaml',
+        'service.yaml', 'configmap', 'kustomize',
+    ],
+    'docker-compose': [
+        'docker-compose', 'compose.yml', 'compose.yaml',
+        'services:', 'container',
+    ],
+    'ci-cd-pipeline': [
+        '.github/workflows', 'gitlab-ci', 'jenkinsfile',
+        'ci/', 'cd/', 'pipeline.yml',
+    ],
+
+    # Other Components
+    'cli-tool': [
+        'cli/', 'bin/', 'commander', 'yargs', 'argparse',
+        'command line', 'terminal',
+    ],
+    'sdk-library': [
+        'sdk/', 'lib/', 'packages/', 'npm publish', 'pypi',
+        'library', 'package',
+    ],
+    'mcp-server': [
+        'mcp server', 'mcp.json', 'model context protocol',
+        'mcp-server', 'mcpServers',
+    ],
+    'agent-system': [
+        'agents/', '.agents/', 'agent orchestration', 'multi-agent',
+        'swarm', 'crew', 'hive',
+    ],
+}
+
+# Coding concepts/patterns detection
+CODING_CONCEPTS = {
+    # Architecture Patterns
+    'microservices': ['microservice', 'service mesh', 'api gateway', 'service discovery'],
+    'monorepo': ['monorepo', 'turborepo', 'nx workspace', 'lerna', 'pnpm workspace'],
+    'serverless': ['serverless', 'lambda', 'cloud functions', 'edge functions'],
+    'event-driven': ['event driven', 'event sourcing', 'cqrs', 'message queue', 'pub/sub'],
+    'clean-architecture': ['clean architecture', 'hexagonal', 'domain driven', 'ddd'],
+
+    # Code Quality
+    'testing': ['unit test', 'integration test', 'e2e test', 'test coverage', 'tdd', 'bdd'],
+    'linting': ['eslint', 'prettier', 'biome', 'ruff', 'black', 'flake8'],
+    'typescript-strict': ['strict mode', 'strictnullchecks', 'noimplicitany', 'type safety'],
+    'ci-cd': ['github actions', 'ci/cd', 'gitlab ci', 'jenkins', 'circleci', 'continuous integration'],
+    'documentation': ['jsdoc', 'typedoc', 'swagger', 'openapi', 'readme', 'docstring'],
+
+    # Design Patterns
+    'dependency-injection': ['dependency injection', 'ioc', 'inversion of control', 'di container'],
+    'factory-pattern': ['factory pattern', 'abstract factory', 'createinstance'],
+    'singleton': ['singleton', 'getinstance'],
+    'observer': ['observer pattern', 'subscribe', 'publish', 'event emitter'],
+    'repository-pattern': ['repository pattern', 'data access layer', 'dal'],
+
+    # Modern Practices
+    'api-first': ['api first', 'openapi', 'swagger', 'api design'],
+    'type-safety': ['type safe', 'strongly typed', 'typescript', 'type inference'],
+    'immutability': ['immutable', 'readonly', 'const', 'freeze'],
+    'functional': ['functional programming', 'pure function', 'higher order', 'map reduce'],
+    'reactive': ['reactive', 'rxjs', 'observable', 'signal', 'effect'],
+
+    # Security
+    'authentication': ['oauth', 'jwt', 'auth', 'login', 'session', 'token'],
+    'authorization': ['rbac', 'acl', 'permission', 'role based'],
+    'encryption': ['encrypt', 'hash', 'bcrypt', 'crypto', 'ssl', 'tls'],
+    'input-validation': ['validate', 'sanitize', 'escape', 'xss', 'injection'],
+
+    # Performance
+    'caching': ['cache', 'redis', 'memcached', 'cdn', 'memoize'],
+    'optimization': ['optimize', 'performance', 'lazy load', 'code split', 'tree shake'],
+    'async-patterns': ['async await', 'promise', 'concurrent', 'parallel', 'worker'],
+    'streaming': ['stream', 'chunk', 'buffer', 'pipe'],
+
+    # Agentic Orchestration Patterns
+    'graph-orchestration': [
+        'graph orchestration', 'langgraph', 'dag', 'directed acyclic',
+        'node graph', 'workflow graph', 'state graph', 'graph-based',
+        'graph execution', 'dependency graph',
+    ],
+    'hierarchical-orchestration': [
+        'hierarchical', 'tree structure', 'parent agent', 'child agent',
+        'supervisor', 'manager agent', 'worker agent', 'delegation',
+        'top-down', 'chain of command', 'crew', 'crewai',
+    ],
+    'swarm-orchestration': [
+        'swarm', 'swarm intelligence', 'emergent', 'decentralized',
+        'peer-to-peer', 'consensus', 'distributed agents', 'hive mind',
+    ],
+    'pipeline-orchestration': [
+        'pipeline', 'sequential', 'chain', 'step-by-step',
+        'workflow pipeline', 'stage', 'phase',
     ],
 }
 
@@ -96,17 +418,22 @@ class ProjectAnalysis:
     display_name: str  # Cleaned name without folder prefixes
     path: Optional[str] = None
     description: str = ''
+    summary: str = ''  # 5-word summary
     technologies: list = field(default_factory=list)
     frameworks: list = field(default_factory=list)
+    components: list = field(default_factory=list)  # chrome-extension, api-server, etc.
+    coding_concepts: list = field(default_factory=list)  # Architecture, patterns, practices
     category: str = ''
     tags: list = field(default_factory=list)
     related_projects: list = field(default_factory=list)
     keyword_matches: dict = field(default_factory=dict)
+    component_matches: dict = field(default_factory=dict)  # Component types detected
+    concept_matches: dict = field(default_factory=dict)  # Coding concepts detected
     confidence: float = 0.0
 
 
 def detect_frameworks_in_text(text: str) -> dict[str, int]:
-    """Detect framework/tool usage from text content."""
+    """Detect framework/tool usage from text content (case-insensitive)."""
     text_lower = text.lower()
     matches = {}
 
@@ -114,12 +441,157 @@ def detect_frameworks_in_text(text: str) -> dict[str, int]:
         count = 0
         for keyword in keywords:
             # Case-insensitive search
-            pattern = re.compile(re.escape(keyword.lower()))
+            keyword_lower = keyword.lower()
+            # Use word boundary for short keywords to reduce false positives
+            if len(keyword_lower) <= 3:
+                pattern = re.compile(r'\b' + re.escape(keyword_lower) + r'\b')
+            else:
+                pattern = re.compile(re.escape(keyword_lower))
             count += len(pattern.findall(text_lower))
         if count > 0:
             matches[framework] = count
 
     return matches
+
+
+def detect_coding_concepts(text: str) -> dict[str, int]:
+    """Detect coding concepts, patterns and practices from text (case-insensitive)."""
+    text_lower = text.lower()
+    matches = {}
+
+    for concept, keywords in CODING_CONCEPTS.items():
+        count = 0
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            pattern = re.compile(re.escape(keyword_lower))
+            count += len(pattern.findall(text_lower))
+        if count > 0:
+            matches[concept] = count
+
+    return matches
+
+
+def detect_components(text: str) -> dict[str, int]:
+    """Detect project component types from text (case-insensitive)."""
+    text_lower = text.lower()
+    matches = {}
+
+    for component, keywords in PROJECT_COMPONENTS.items():
+        count = 0
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            pattern = re.compile(re.escape(keyword_lower))
+            count += len(pattern.findall(text_lower))
+        if count > 0:
+            matches[component] = count
+
+    return matches
+
+
+def generate_project_summary(
+    name: str,
+    frameworks: list,
+    components: list,
+    concepts: list,
+    category: str
+) -> str:
+    """Generate a concise 5-word summary for a project based on detected info."""
+
+    # Priority keywords for summary generation
+    summary_parts = []
+
+    # Add component type
+    component_labels = {
+        'chrome-extension': 'Chrome extension',
+        'vscode-extension': 'VSCode extension',
+        'web-frontend': 'Web app',
+        'mobile-app': 'Mobile app',
+        'desktop-app': 'Desktop app',
+        'api-server': 'API server',
+        'graphql-api': 'GraphQL API',
+        'websocket-server': 'Realtime server',
+        'ml-pipeline': 'ML pipeline',
+        'data-ingestion': 'Data ingestion',
+        'knowledge-graph': 'Knowledge graph',
+        'kubernetes': 'K8s deployment',
+        'docker-compose': 'Containerized',
+        'ci-cd-pipeline': 'CI/CD',
+        'cli-tool': 'CLI tool',
+        'sdk-library': 'SDK/Library',
+        'mcp-server': 'MCP server',
+        'agent-system': 'Agent system',
+    }
+
+    # Key framework labels
+    framework_labels = {
+        'claude-flow': 'Claude workflow',
+        'sparc': 'SPARC',
+        'coscientist': 'scientific',
+        'react': 'React',
+        'nextjs': 'Next.js',
+        'fastapi': 'FastAPI',
+        'cloudflare': 'Cloudflare',
+        'supabase': 'Supabase',
+        'postgresql': 'PostgreSQL',
+        'langchain': 'LangChain',
+        'anthropic': 'Claude AI',
+        'openai': 'OpenAI',
+    }
+
+    # Category labels
+    category_labels = {
+        'ai-agent': 'AI agent',
+        'scientific': 'scientific',
+        'web-app': 'web',
+        'cli-tool': 'CLI',
+        'api': 'API',
+        'mobile': 'mobile',
+        'infrastructure': 'infrastructure',
+        'data': 'data',
+    }
+
+    # Build summary from components
+    if components:
+        top_component = components[0]
+        if top_component in component_labels:
+            summary_parts.append(component_labels[top_component])
+
+    # Add key framework
+    for fw in frameworks[:2]:
+        if fw in framework_labels and len(summary_parts) < 3:
+            summary_parts.append(framework_labels[fw])
+
+    # Add category context
+    if category and category in category_labels and len(summary_parts) < 4:
+        if category_labels[category] not in ' '.join(summary_parts).lower():
+            summary_parts.append(category_labels[category])
+
+    # Add action word based on concepts
+    if 'data-ingestion' in components or 'ingestion' in name.lower():
+        summary_parts.append('ingestion')
+    elif 'ml-pipeline' in components:
+        summary_parts.append('training')
+    elif 'knowledge-graph' in components:
+        summary_parts.append('graph')
+
+    # Fill with generic terms if needed
+    if len(summary_parts) < 2:
+        if 'testing' in concepts:
+            summary_parts.append('tested')
+        if 'authentication' in concepts:
+            summary_parts.append('secure')
+
+    # Construct final summary
+    if not summary_parts:
+        # Fallback: use name parts
+        name_words = name.replace('-', ' ').replace('_', ' ').split()
+        summary_parts = name_words[:3]
+
+    # Ensure max 5 words
+    summary = ' '.join(summary_parts[:5])
+
+    # Capitalize properly
+    return summary.strip() if summary else name
 
 
 def detect_technologies(text: str) -> list[str]:
@@ -187,10 +659,12 @@ def analyze_readme(project_path: str) -> dict:
     }
 
 
-def analyze_jsonl_for_frameworks(jsonl_dir: Path, project_name: str) -> dict[str, int]:
-    """Analyze JSONL conversation files for framework usage keywords."""
-    framework_counts = defaultdict(int)
+def analyze_jsonl_for_frameworks(jsonl_dir: Path, project_name: str) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+    """Analyze JSONL conversation files for framework usage, coding concepts, and components.
 
+    Returns:
+        tuple: (framework_counts, concept_counts, component_counts)
+    """
     # Find project's JSONL directory
     encoded_patterns = [
         project_name,
@@ -228,6 +702,15 @@ def analyze_jsonl_for_frameworks(jsonl_dir: Path, project_name: str) -> dict[str
                                                 sample_text.append(block.get('text', ''))
                                     elif isinstance(blocks, str):
                                         sample_text.append(blocks)
+                            # Also extract assistant messages for more context
+                            elif msg.get('type') == 'assistant':
+                                content = msg.get('message', {})
+                                if isinstance(content, dict):
+                                    blocks = content.get('content', [])
+                                    if isinstance(blocks, list):
+                                        for block in blocks:
+                                            if isinstance(block, dict) and block.get('type') == 'text':
+                                                sample_text.append(block.get('text', ''))
                         except json.JSONDecodeError:
                             pass
             except Exception:
@@ -235,7 +718,11 @@ def analyze_jsonl_for_frameworks(jsonl_dir: Path, project_name: str) -> dict[str
 
     # Analyze sampled text
     full_text = ' '.join(sample_text)
-    return detect_frameworks_in_text(full_text)
+    framework_counts = detect_frameworks_in_text(full_text)
+    concept_counts = detect_coding_concepts(full_text)
+    component_counts = detect_components(full_text)
+
+    return framework_counts, concept_counts, component_counts
 
 
 def find_related_projects(
@@ -319,14 +806,18 @@ def analyze_all_projects(
     jsonl_dir = claude_dir / 'projects'
     results = []
 
-    # First pass: collect framework data from JSONL
+    # First pass: collect framework, concept, and component data from JSONL
     project_names = [p.get('name', '') for p in projects]
     framework_data = {}
+    concept_data = {}
+    component_data = {}
 
     for proj in projects:
         name = proj.get('name', '')
-        frameworks = analyze_jsonl_for_frameworks(jsonl_dir, name)
+        frameworks, concepts, components = analyze_jsonl_for_frameworks(jsonl_dir, name)
         framework_data[name] = frameworks
+        concept_data[name] = concepts
+        component_data[name] = components
 
     # Second pass: analyze each project
     for proj in projects:
@@ -366,6 +857,14 @@ def analyze_all_projects(
         analysis.frameworks = list(framework_data.get(name, {}).keys())
         analysis.keyword_matches = framework_data.get(name, {})
 
+        # Apply coding concepts data
+        analysis.coding_concepts = list(concept_data.get(name, {}).keys())
+        analysis.concept_matches = concept_data.get(name, {})
+
+        # Apply component data
+        analysis.components = list(component_data.get(name, {}).keys())
+        analysis.component_matches = component_data.get(name, {})
+
         # Detect technologies from JSONL if not from README
         if not analysis.technologies:
             analysis.technologies = detect_technologies(name)
@@ -374,6 +873,15 @@ def analyze_all_projects(
         analysis.category = detect_category(
             analysis.description + ' ' + ' '.join(analysis.frameworks),
             name
+        )
+
+        # Generate 5-word summary
+        analysis.summary = generate_project_summary(
+            name,
+            analysis.frameworks,
+            analysis.components,
+            analysis.coding_concepts,
+            analysis.category
         )
 
         # Find related projects
@@ -389,8 +897,10 @@ def analyze_all_projects(
             confidence += 0.2
         if analysis.frameworks:
             confidence += 0.3
+        if analysis.coding_concepts:
+            confidence += 0.1
         if analysis.category != 'other':
-            confidence += 0.2
+            confidence += 0.1
         analysis.confidence = confidence
 
         results.append(analysis)
