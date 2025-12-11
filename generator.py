@@ -197,8 +197,8 @@ def generate_html(data: dict) -> str:
     coding_city = data.get('coding_city', '')
     coding_city_desc = data.get('coding_city_description', '')
     
-    # Top projects
-    top_projects = data.get('top_projects', [])
+    # Top projects - prefer combined (Claude + Git) rankings when available
+    top_projects = data.get('top_projects_combined', []) or data.get('top_projects', [])
     
     # Prepare chart data
     weekday_data = data.get('weekday_distribution', {})
@@ -840,6 +840,38 @@ def generate_html(data: dict) -> str:
             background: rgba(255, 255, 255, 0.1);
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
+        }}
+
+        .project-stats .no-claude {{
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+        }}
+
+        .project-git-stats {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: rgba(0, 245, 255, 0.7);
+            margin-top: 0.3rem;
+        }}
+
+        .project-git-stats span {{
+            background: rgba(0, 245, 255, 0.1);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 245, 255, 0.2);
+        }}
+
+        .source-badge {{
+            font-size: 0.9rem;
+            margin-right: 0.3rem;
+        }}
+
+        .project-card.git-only {{
+            border-color: rgba(0, 245, 255, 0.3);
+            background: linear-gradient(145deg, rgba(0, 245, 255, 0.05) 0%, rgba(17, 24, 39, 0.9) 100%);
         }}
 
         .project-header {{
@@ -3056,21 +3088,57 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         else:
             badge = f'#{i+1}'
 
-        cards.append(f'''
-            <div class="project-card">
-                <div class="project-rank">{badge}</div>
-                <div class="project-header">
-                    <div class="project-name">{name}</div>
-                    {category_html}
-                    {component_html}
+        # Git metrics
+        has_git = proj.get('has_git_data', False)
+        git_only = proj.get('git_only', False)
+        git_commits = proj.get('git_commits', 0)
+        git_lines = proj.get('git_net_lines', 0)
+        git_lang = proj.get('git_primary_language', '')
+
+        # Source indicator
+        if has_git and sessions > 0:
+            source_badge = '<span class="source-badge source-both" title="Claude + Git">🔗</span>'
+        elif git_only:
+            source_badge = '<span class="source-badge source-git" title="Git only">📂</span>'
+        else:
+            source_badge = '<span class="source-badge source-claude" title="Claude only">💬</span>'
+
+        # Git stats line
+        if has_git and git_commits > 0:
+            git_stats_html = f'''
+                <div class="project-git-stats">
+                    <span title="Git commits">📝 {git_commits} commits</span>
+                    <span title="Net lines of code">📊 {format_number(git_lines)} lines</span>
+                    {f'<span title="Primary language">💻 {html.escape(git_lang)}</span>' if git_lang else ''}
                 </div>
-                {summary_html}
+            '''
+        else:
+            git_stats_html = ''
+
+        # Claude stats (only show if has Claude sessions)
+        if sessions > 0:
+            claude_stats_html = f'''
                 <div class="project-stats">
                     <span>{sessions} sessions</span>
                     <span>{messages} msgs</span>
                     <span>{tokens} tokens</span>
                     <span>{cost}</span>
                 </div>
+            '''
+        else:
+            claude_stats_html = '<div class="project-stats"><span class="no-claude">No Claude sessions</span></div>'
+
+        cards.append(f'''
+            <div class="project-card {'git-only' if git_only else ''}">
+                <div class="project-rank">{badge}</div>
+                <div class="project-header">
+                    <div class="project-name">{source_badge} {name}</div>
+                    {category_html}
+                    {component_html}
+                </div>
+                {summary_html}
+                {claude_stats_html}
+                {git_stats_html}
                 {tech_html}
             </div>
         ''')

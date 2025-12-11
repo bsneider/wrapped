@@ -193,7 +193,129 @@ Easter Eggs:
     except Exception as e:
         if not args.quiet:
             print(f"⚠️  Project analysis failed: {e}", file=sys.stderr)
-    
+
+    # Run git repository analysis
+    try:
+        from git_analyzer import analyze_all_repos, correlate_repos_to_projects
+
+        if not args.quiet:
+            print("📂 Scanning git repositories...", file=sys.stderr)
+
+        # Use same base paths as project analyzer
+        git_base_paths = [
+            str(Path.home() / 'sundai'),
+            str(Path.home() / 'projects'),
+            str(Path.home() / 'repos'),
+            str(Path.home() / 'code'),
+            str(Path.home() / 'dev'),
+            str(Path.home() / 'work'),
+            str(Path.home() / 'github'),
+        ]
+
+        git_repos, git_summary = analyze_all_repos(git_base_paths, max_repos=100)
+
+        # Add git summary metrics to output
+        json_data['git_repos_analyzed'] = git_summary.repos_analyzed
+        json_data['git_total_commits'] = git_summary.total_commits
+        json_data['git_user_commits'] = git_summary.user_commits
+        json_data['git_total_lines_written'] = git_summary.total_net_lines
+        json_data['git_primary_languages'] = sorted(
+            git_summary.languages.items(),
+            key=lambda x: -x[1]
+        )[:10]
+        json_data['git_hourly_distribution'] = git_summary.hourly_distribution
+        json_data['git_daily_distribution'] = git_summary.daily_distribution
+        json_data['git_most_active_repo'] = git_summary.most_active_repo
+        json_data['git_most_active_repo_commits'] = git_summary.most_active_repo_commits
+        json_data['git_longest_streak_days'] = git_summary.longest_streak_days
+        json_data['git_current_streak_days'] = git_summary.current_streak_days
+        json_data['git_peak_hour'] = git_summary.peak_hour
+        json_data['git_peak_day'] = git_summary.peak_day
+        json_data['git_weekend_ratio'] = git_summary.weekend_ratio
+        json_data['git_top_repos'] = git_summary.top_repos
+
+        # Correlate git repos with Claude projects
+        claude_projects = json_data.get('top_projects', [])
+        repo_matches = correlate_repos_to_projects(git_repos, claude_projects)
+
+        # Build combined project rankings (merging Claude + Git data)
+        combined_projects = []
+        git_repo_map = {r.name.lower().replace('_', '-'): r for r in git_repos}
+
+        for proj in claude_projects:
+            combined = dict(proj)
+            proj_name_normalized = proj['name'].lower().replace('_', '-')
+
+            matched_repo = repo_matches.get(proj['name']) or git_repo_map.get(proj_name_normalized)
+
+            if matched_repo:
+                combined['git_commits'] = matched_repo.total_commits
+                combined['git_user_commits'] = matched_repo.user_commits
+                combined['git_lines_changed'] = matched_repo.total_additions + matched_repo.total_deletions
+                combined['git_net_lines'] = matched_repo.net_lines
+                combined['git_languages'] = matched_repo.languages
+                combined['git_primary_language'] = matched_repo.primary_language
+                combined['git_last_commit'] = matched_repo.last_commit.isoformat() if matched_repo.last_commit else None
+                combined['git_engagement_score'] = matched_repo.engagement_score
+
+                claude_score = proj.get('engagement_score', 0)
+                git_score = matched_repo.engagement_score
+                combined['combined_engagement_score'] = 0.60 * claude_score + 0.40 * git_score
+                combined['has_git_data'] = True
+            else:
+                combined['combined_engagement_score'] = 0.85 * proj.get('engagement_score', 0)
+                combined['has_git_data'] = False
+
+            combined_projects.append(combined)
+
+        # Add git-only projects
+        matched_repos = set(r.name for r in repo_matches.values())
+        for repo in git_repos:
+            if repo.name not in matched_repos:
+                repo_normalized = repo.name.lower().replace('_', '-')
+                already_matched = any(
+                    p.get('name', '').lower().replace('_', '-') == repo_normalized
+                    for p in combined_projects
+                )
+
+                if not already_matched:
+                    combined_projects.append({
+                        'name': repo.name,
+                        'display_name': repo.name,
+                        'full_path': repo.path,
+                        'sessions': 0,
+                        'messages': 0,
+                        'tokens': 0,
+                        'cost': 0,
+                        'duration_ms': 0,
+                        'git_commits': repo.total_commits,
+                        'git_user_commits': repo.user_commits,
+                        'git_lines_changed': repo.total_additions + repo.total_deletions,
+                        'git_net_lines': repo.net_lines,
+                        'git_languages': repo.languages,
+                        'git_primary_language': repo.primary_language,
+                        'git_last_commit': repo.last_commit.isoformat() if repo.last_commit else None,
+                        'git_engagement_score': repo.engagement_score,
+                        'combined_engagement_score': 0.50 * repo.engagement_score,
+                        'has_git_data': True,
+                        'git_only': True,
+                    })
+
+        combined_projects.sort(key=lambda x: x.get('combined_engagement_score', 0), reverse=True)
+        json_data['top_projects_combined'] = combined_projects[:50]
+
+        if not args.quiet:
+            print(f"✅ Analyzed {git_summary.repos_analyzed} git repos, matched {len(repo_matches)} to Claude projects", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  git_analyzer.py not found, skipping git analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Git analysis failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+
     # Generate output
     if args.json:
         output = json.dumps(json_data, indent=2, default=str)
