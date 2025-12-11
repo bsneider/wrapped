@@ -197,64 +197,67 @@ def parse_timestamp(ts_str: str) -> Optional[datetime]:
 
 def decode_project_path(encoded: str) -> str:
     """Decode the encoded project path from directory name.
-    
+
     Pattern: -Users-username-folder-project-name becomes project-name
-    
+
     The encoding replaces / with - but project names can also have dashes.
     We assume: /Users/username/[maybe-one-folder]/project-name-with-dashes
-    
+
     Strategy:
     1. Remove leading dash
-    2. Skip 'Users' or 'home' 
+    2. Skip 'Users' or 'home'
     3. Skip the username (next segment)
-    4. Skip common parent folders (optional)
+    4. Skip ALL known parent folders (not just one)
     5. Rejoin everything else with dashes (this is the project name)
     """
     if not encoded:
         return encoded
-    
+
     # Handle worktree patterns first (e.g., project-worktree-feature-branch)
     if '-worktree-' in encoded.lower():
         parts = encoded.split('-worktree-')
         encoded = parts[0]  # Process the base part
-    
+
     # Standard encoding: leading dash with dashes for slashes
     if not encoded.startswith('-'):
         return encoded
-    
+
     # Remove leading dash and split
     parts = encoded[1:].split('-')
-    
+
     if len(parts) < 3:
         return encoded  # Too short, return as-is
-    
+
     # Skip system path prefixes
     start_idx = 0
-    
+
     # Skip 'Users', 'home', 'root'
     if parts[0].lower() in ('users', 'home', 'root'):
         start_idx = 1
-    
+
     # Skip the username (always the next element after Users/home)
     if start_idx < len(parts):
         start_idx += 1
-    
+
     # Common parent folder names that are likely not part of the project name
+    # These are folders that contain multiple projects
     common_folders = {
-        'projects', 'repos', 'code', 'src', 'dev', 'development', 
+        'projects', 'repos', 'code', 'src', 'dev', 'development',
         'work', 'workspace', 'github', 'gitlab', 'bitbucket',
-        'documents', 'desktop', 'downloads', 'go', 'rust', 'python'
+        'documents', 'desktop', 'downloads', 'go', 'rust', 'python',
+        # User-specific project folders (add your own here)
+        'sundai', 'clones', 'forks', 'contrib', 'personal', 'client',
     }
-    
-    # Skip ONE common folder if present (e.g., 'projects', 'repos')
-    if start_idx < len(parts) and parts[start_idx].lower() in common_folders:
+
+    # Skip ALL known parent folders (not just one)
+    while start_idx < len(parts) and parts[start_idx].lower() in common_folders:
         start_idx += 1
-    
+
     # Everything remaining is the project name (rejoined with dashes)
     if start_idx < len(parts):
         project_name = '-'.join(parts[start_idx:])
         return project_name
-    
+
     return encoded
 
 
@@ -1228,20 +1231,82 @@ def to_json_serializable(data: ClaudeWrappedData) -> dict:
 def main():
     """Main entry point."""
     import sys
-    
+
     # Default to ~/.claude but allow override
     claude_dir = Path(os.path.expanduser('~/.claude'))
     if len(sys.argv) > 1:
         claude_dir = Path(sys.argv[1])
-    
-    print(f"🔍 Analyzing {claude_dir}...")
-    
+
+    print(f"🔍 Analyzing {claude_dir}...", file=sys.stderr)
+
     data = analyze_claude_directory(claude_dir)
-    
+
     # Output JSON
     output = to_json_serializable(data)
+
+    # Save to SQLite database
+    try:
+        from metrics_db import init_db, save_metrics_snapshot
+        conn = init_db()
+        snapshot_id = save_metrics_snapshot(conn, output)
+        print(f"📊 Saved metrics snapshot #{snapshot_id} to database", file=sys.stderr)
+        conn.close()
+    except ImportError:
+        print("⚠️  metrics_db.py not found, skipping database save", file=sys.stderr)
+    except Exception as e:
+        print(f"⚠️  Failed to save to database: {e}", file=sys.stderr)
+
+    # Run project analysis if available
+    try:
+        from project_analyzer import analyze_all_projects, group_projects_smart
+        print("🔬 Analyzing projects for frameworks and relationships...", file=sys.stderr)
+
+        # Get project base paths from common locations
+        project_base_paths = [
+            str(Path.home() / 'sundai'),
+            str(Path.home() / 'projects'),
+            str(Path.home() / 'repos'),
+            str(Path.home() / 'code'),
+        ]
+
+        analyses = analyze_all_projects(
+            output.get('top_projects', []),
+            claude_dir,
+            project_base_paths
+        )
+
+        # Add framework detection results to output
+        framework_counts = defaultdict(int)
+        for analysis in analyses:
+            for fw, count in analysis.keyword_matches.items():
+                framework_counts[fw] += count
+
+        output['detected_frameworks'] = dict(framework_counts)
+        output['top_frameworks'] = sorted(
+            framework_counts.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:10]
+
+        # Smart project groupings
+        smart_groups = group_projects_smart(analyses)
+        output['smart_project_groups'] = smart_groups
+
+        # Add cleaned project display names
+        for proj in output.get('top_projects', []):
+            proj['display_name'] = decode_project_path('-Users-pierre-sundai-' + proj['name'])
+
+        print(f"✅ Found {len(framework_counts)} frameworks, {len(smart_groups)} project groups", file=sys.stderr)
+
+    except ImportError:
+        print("⚠️  project_analyzer.py not found, skipping project analysis", file=sys.stderr)
+    except Exception as e:
+        print(f"⚠️  Project analysis failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+
     print(json.dumps(output, indent=2, default=str))
-    
+
     return output
 
 

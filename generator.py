@@ -765,6 +765,63 @@ def generate_html(data: dict) -> str:
             font-size: 0.75rem;
             color: var(--neon-cyan);
         }}
+
+        /* Frameworks section */
+        .frameworks-section {{
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }}
+
+        .frameworks-title {{
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            color: var(--neon-orange);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }}
+
+        .frameworks-grid {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }}
+
+        .framework-tag {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(255, 149, 0, 0.15), rgba(255, 0, 110, 0.1));
+            border: 1px solid var(--neon-orange);
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            transition: all 0.2s;
+        }}
+
+        .framework-tag:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 149, 0, 0.3);
+        }}
+
+        .framework-icon {{
+            font-size: 1.2rem;
+        }}
+
+        .framework-name {{
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--neon-orange);
+            font-size: 0.9rem;
+        }}
+
+        .framework-count {{
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.15rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+        }}
         
         /* Command/Agent/Skill cards */
         .command-grid {{
@@ -1506,7 +1563,7 @@ def generate_html(data: dict) -> str:
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
             <div class="projects-grid">
-                {generate_top_projects_html(top_projects, data.get('project_groups', {}))}
+                {generate_top_projects_html(top_projects, data.get('project_groups', {}), data.get('smart_project_groups', {}))}
             </div>
         </section>
         
@@ -1643,8 +1700,9 @@ def generate_html(data: dict) -> str:
             <div class="command-grid">
                 {generate_command_cards(data)}
             </div>
+            {generate_frameworks_html(data)}
         </section>
-        
+
         <!-- Karpathy Quote -->
         <section class="quote-section">
             <p class="quote-text">{KARPATHY_QUOTES[hash(str(total_tokens)) % len(KARPATHY_QUOTES)]}</p>
@@ -2094,26 +2152,71 @@ def generate_model_tags(model_items: list) -> str:
     return '\n'.join(tags)
 
 
-def generate_top_projects_html(projects: list, project_groups: dict = None) -> str:
+def generate_top_projects_html(projects: list, project_groups: dict = None, smart_groups: dict = None) -> str:
     """Generate HTML for top projects section with optional grouping."""
     if not projects:
         return '<div class="project-card"><div class="project-name">No projects found</div></div>'
 
-    # If we have project groups, show grouped view first
+    # If we have smart groups (from project analyzer), show those first
     grouped_html = ''
-    if project_groups:
+    if smart_groups:
+        group_cards = []
+        # Prioritize framework and cluster groups
+        priority_order = ['cluster:', 'framework:', 'category:']
+        sorted_groups = sorted(
+            smart_groups.items(),
+            key=lambda x: (
+                next((i for i, p in enumerate(priority_order) if x[0].startswith(p)), len(priority_order)),
+                -len(x[1])
+            )
+        )
+
+        for group_key, proj_names in sorted_groups[:6]:  # Show top 6 smart groups
+            if len(proj_names) < 2:
+                continue
+
+            # Parse group key for display
+            if ':' in group_key:
+                group_type, group_name = group_key.split(':', 1)
+                if group_type == 'cluster':
+                    icon = '🔗'
+                    label = group_name.title()
+                elif group_type == 'framework':
+                    icon = '🛠️'
+                    label = group_name
+                else:
+                    icon = '📂'
+                    label = group_name.title()
+            else:
+                icon = '📁'
+                label = group_key.title()
+
+            # Shorten project names
+            short_names = [html.escape(pn.split('-')[-1] if '-' in pn else pn) for pn in proj_names[:4]]
+
+            group_cards.append(f'''
+                <div class="project-group-card">
+                    <div class="project-group-header">{icon} {html.escape(label)}</div>
+                    <div class="project-group-items">{' · '.join(short_names)}{' +' + str(len(proj_names)-4) if len(proj_names) > 4 else ''}</div>
+                    <div class="project-group-count">{len(proj_names)} related projects</div>
+                </div>
+            ''')
+
+        if group_cards:
+            grouped_html = f'<div class="project-groups-section"><div class="project-groups-title">Smart Project Groups</div><div class="project-groups-grid">{"".join(group_cards)}</div></div>'
+
+    # Fallback to simple folder-based groups if no smart groups
+    elif project_groups:
         group_cards = []
         for folder, proj_names in sorted(project_groups.items(), key=lambda x: -len(x[1])):
             if len(proj_names) > 1:
-                # Shorten project names by removing the folder prefix
                 short_names = []
-                for pn in proj_names[:4]:  # Show max 4 per group
-                    # Remove the folder prefix from display
+                for pn in proj_names[:4]:
                     short = pn
                     if pn.lower().startswith(folder):
                         short = pn[len(folder):].lstrip('-_')
                         if not short:
-                            short = pn  # Keep original if nothing left
+                            short = pn
                     short_names.append(html.escape(short))
 
                 group_cards.append(f'''
@@ -2129,7 +2232,8 @@ def generate_top_projects_html(projects: list, project_groups: dict = None) -> s
     # Individual project cards
     cards = []
     for i, proj in enumerate(projects[:8]):  # Show top 8
-        name = html.escape(proj.get('name', 'Unknown'))
+        # Use display_name if available, otherwise name
+        name = html.escape(proj.get('display_name', proj.get('name', 'Unknown')))
         sessions = proj.get('sessions', 0)
         messages = proj.get('messages', 0)
         tokens = format_number(proj.get('tokens', 0))
@@ -2158,6 +2262,43 @@ def generate_top_projects_html(projects: list, project_groups: dict = None) -> s
         ''')
 
     return grouped_html + '\n'.join(cards)
+
+
+def generate_frameworks_html(data: dict) -> str:
+    """Generate HTML for detected frameworks/tools section."""
+    top_frameworks = data.get('top_frameworks', [])
+
+    if not top_frameworks:
+        return ''
+
+    items = []
+    # Framework icons
+    framework_icons = {
+        'claude-flow': '🌊',
+        'sparc': '⚡',
+        'agentic-engineering': '🤖',
+        'coscientist': '🔬',
+        'mcp': '🔌',
+        'langchain': '🔗',
+        'crewai': '👥',
+    }
+
+    for framework, count in top_frameworks[:8]:
+        icon = framework_icons.get(framework, '📦')
+        items.append(f'''
+            <div class="framework-tag">
+                <span class="framework-icon">{icon}</span>
+                <span class="framework-name">{html.escape(framework)}</span>
+                <span class="framework-count">{count}</span>
+            </div>
+        ''')
+
+    return f'''
+        <div class="frameworks-section">
+            <div class="frameworks-title">Detected Frameworks & Tools</div>
+            <div class="frameworks-grid">{"".join(items)}</div>
+        </div>
+    '''
 
 
 def generate_command_cards(data: dict) -> str:
