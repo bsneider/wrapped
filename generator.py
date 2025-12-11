@@ -152,6 +152,25 @@ def get_time_roast(hour_dist: dict) -> tuple[str, str, int]:
     return "The Insomniac", f"Peak coding at {peak_hour}:00. The witching hour calls.", peak_hour
 
 
+def get_bio_rhythm_icon(peak_hour: int) -> str:
+    """Get appropriate icon for time of day."""
+    if peak_hour < 0:
+        return "⏰"
+    if 0 <= peak_hour <= 4:
+        return "🌙"  # Late night/early morning - moon
+    if 5 <= peak_hour <= 8:
+        return "🌅"  # Early morning - sunrise
+    if 9 <= peak_hour <= 11:
+        return "☀️"  # Morning - sun
+    if 12 <= peak_hour <= 14:
+        return "🌞"  # Midday - bright sun
+    if 15 <= peak_hour <= 17:
+        return "🌤️"  # Afternoon - sun with cloud
+    if 18 <= peak_hour <= 20:
+        return "🌆"  # Evening - sunset
+    return "🌙"  # Night - moon
+
+
 def generate_html(data: dict) -> str:
     """Generate the full HTML report."""
     
@@ -165,6 +184,7 @@ def generate_html(data: dict) -> str:
     yapping_title, yapping_desc = get_yapping_verdict(data.get('user_to_assistant_token_ratio', 1))
     cache_title, cache_desc = get_cache_verdict(data.get('cache_efficiency_ratio', 0))
     time_title, time_desc, peak_hour = get_time_roast(data.get('hourly_distribution', {}))
+    bio_rhythm_icon = get_bio_rhythm_icon(peak_hour)
     
     # Format numbers - use abbreviated format for large numbers
     sessions_formatted = format_number(total_sessions)
@@ -184,10 +204,6 @@ def generate_html(data: dict) -> str:
     top_projects = data.get('top_projects', [])
     
     # Prepare chart data
-    hourly_data = data.get('hourly_distribution', {})
-    hourly_labels = [str(i) for i in range(24)]
-    hourly_values = [hourly_data.get(i, hourly_data.get(str(i), 0)) for i in range(24)]
-    
     weekday_data = data.get('weekday_distribution', {})
     weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     weekday_values = [weekday_data.get(day, 0) for day in weekday_order]
@@ -1866,17 +1882,17 @@ def generate_html(data: dict) -> str:
                 </article>
 
                 <!-- Cache Efficiency -->
-                <article class="verdict-card cyan" role="listitem" aria-labelledby="cache-title">
-                    <div class="verdict-icon" aria-hidden="true">🧠</div>
-                    <div class="verdict-subtitle">Cache Efficiency</div>
+                <article class="verdict-card cyan" role="listitem" aria-labelledby="cache-title" title="Cache efficiency measures how often Claude reuses context from previous turns instead of re-processing everything. Higher = cheaper API calls.">
+                    <div class="verdict-icon" aria-hidden="true">💾</div>
+                    <div class="verdict-subtitle">Context Reuse</div>
                     <div class="verdict-title" id="cache-title">{cache_title}</div>
                     <div class="verdict-desc">{cache_desc}</div>
-                    <div class="verdict-stat" title="Percentage of tokens served from cache">{data.get('cache_efficiency_ratio', 0)*100:.1f}% reuse</div>
+                    <div class="verdict-stat">{data.get('cache_efficiency_ratio', 0)*100:.1f}% cached</div>
                 </article>
 
                 <!-- Bio Rhythm -->
                 <article class="verdict-card purple" role="listitem" aria-labelledby="bio-title">
-                    <div class="verdict-icon" aria-hidden="true">🌙</div>
+                    <div class="verdict-icon" aria-hidden="true">{bio_rhythm_icon}</div>
                     <div class="verdict-subtitle">Bio Rhythm</div>
                     <div class="verdict-title" id="bio-title">{time_title}</div>
                     <div class="verdict-desc">{time_desc}</div>
@@ -1913,14 +1929,6 @@ def generate_html(data: dict) -> str:
             </div>
         </section>
         
-        <!-- Bio Rhythm Chart -->
-        <section class="chart-section" aria-labelledby="bio-rhythm-chart-title">
-            <div class="chart-title" id="bio-rhythm-chart-title"><span aria-hidden="true">⏰</span> When You Code</div>
-            <div class="chart-container">
-                <canvas id="hourlyChart" role="img" aria-label="Bar chart showing coding activity distribution across 24 hours of the day"></canvas>
-            </div>
-        </section>
-
         <!-- 🌟 MEGA CHART: 3D Token Skyline 🌟 -->
         <section class="chart-section year-in-code" aria-labelledby="skyline-chart-title">
             <div class="chart-title" id="skyline-chart-title"><span aria-hidden="true">🏙️</span> Your 3D Coding Skyline</div>
@@ -2158,43 +2166,6 @@ def generate_html(data: dict) -> str:
         const neonOrange = '#ff9500';
         const neonGreen = '#39ff14';
         
-        // Hourly chart
-        new Chart(document.getElementById('hourlyChart'), {{
-            type: 'bar',
-            data: {{
-                labels: {json.dumps(hourly_labels)},
-                datasets: [{{
-                    label: 'Sessions',
-                    data: {json.dumps(hourly_values)},
-                    backgroundColor: (ctx) => {{
-                        const hour = ctx.dataIndex;
-                        if (hour >= 0 && hour <= 5) return neonPurple;
-                        if (hour >= 6 && hour <= 11) return neonOrange;
-                        if (hour >= 12 && hour <= 17) return neonCyan;
-                        return neonPink;
-                    }},
-                    borderRadius: 4,
-                }}]
-            }},
-            options: {{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {{
-                    legend: {{ display: false }},
-                }},
-                scales: {{
-                    x: {{
-                        grid: {{ color: 'rgba(255,255,255,0.05)' }},
-                        ticks: {{ color: 'rgba(255,255,255,0.5)' }}
-                    }},
-                    y: {{
-                        grid: {{ color: 'rgba(255,255,255,0.05)' }},
-                        ticks: {{ color: 'rgba(255,255,255,0.5)' }}
-                    }}
-                }}
-            }}
-        }});
-
         // Tool chart
         new Chart(document.getElementById('toolChart'), {{
             type: 'doughnut',
@@ -2415,6 +2386,9 @@ def generate_html(data: dict) -> str:
                 gridHelper.position.y = -0.1;
                 scene.add(gridHelper);
 
+                // Add city skyline silhouette in background
+                addCitySkyline();
+
                 // Add axis labels
                 addAxisLabels();
 
@@ -2466,6 +2440,147 @@ def generate_html(data: dict) -> str:
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, h);
                 }});
+            }}
+
+            // City skyline building definitions - iconic silhouettes
+            const citySkylines = {{
+                'Tokyo': [
+                    {{ height: 12, width: 1.5, depth: 1.5, x: -12, name: 'Tokyo Tower' }},
+                    {{ height: 15, width: 2, depth: 2, x: -8, name: 'Tokyo Skytree' }},
+                    {{ height: 8, width: 3, depth: 2, x: -4, name: 'Mode Gakuen Tower' }},
+                    {{ height: 10, width: 2.5, depth: 2, x: 0, name: 'Shinjuku Tower' }},
+                    {{ height: 7, width: 2, depth: 2, x: 4, name: 'Roppongi Hills' }},
+                    {{ height: 9, width: 2, depth: 1.5, x: 8, name: 'Shibuya Scramble' }},
+                ],
+                'San Francisco': [
+                    {{ height: 14, width: 2, depth: 2, x: -10, name: 'Transamerica Pyramid', pyramid: true }},
+                    {{ height: 11, width: 2.5, depth: 2, x: -5, name: 'Salesforce Tower' }},
+                    {{ height: 8, width: 2, depth: 2, x: 0, name: '555 California' }},
+                    {{ height: 6, width: 8, depth: 1, x: 6, name: 'Golden Gate Tower', bridge: true }},
+                    {{ height: 7, width: 2, depth: 2, x: 12, name: 'Coit Tower' }},
+                ],
+                'New York': [
+                    {{ height: 16, width: 2, depth: 2, x: -10, name: 'Empire State' }},
+                    {{ height: 14, width: 3, depth: 2, x: -5, name: 'One WTC' }},
+                    {{ height: 12, width: 2.5, depth: 2, x: 0, name: 'Chrysler Building', spire: true }},
+                    {{ height: 10, width: 2, depth: 2, x: 5, name: '432 Park' }},
+                    {{ height: 8, width: 3, depth: 2, x: 10, name: 'Flatiron' }},
+                ],
+                'Berlin': [
+                    {{ height: 12, width: 1, depth: 1, x: -8, name: 'TV Tower', antenna: true }},
+                    {{ height: 6, width: 6, depth: 2, x: -2, name: 'Brandenburg Gate' }},
+                    {{ height: 8, width: 3, depth: 2, x: 4, name: 'Reichstag', dome: true }},
+                    {{ height: 7, width: 2, depth: 2, x: 10, name: 'Potsdamer Platz' }},
+                ],
+                'London': [
+                    {{ height: 13, width: 2, depth: 2, x: -10, name: 'The Shard', pyramid: true }},
+                    {{ height: 7, width: 3, depth: 3, x: -4, name: 'Gherkin', oval: true }},
+                    {{ height: 6, width: 4, depth: 2, x: 2, name: 'Tower Bridge' }},
+                    {{ height: 10, width: 2, depth: 2, x: 8, name: 'Big Ben', clock: true }},
+                ],
+                'Stockholm': [
+                    {{ height: 8, width: 2, depth: 2, x: -8, name: 'City Hall', spire: true }},
+                    {{ height: 6, width: 3, depth: 2, x: -2, name: 'Royal Palace' }},
+                    {{ height: 7, width: 2, depth: 2, x: 4, name: 'Ericsson Globe', dome: true }},
+                    {{ height: 5, width: 2, depth: 2, x: 10, name: 'Gamla Stan' }},
+                ],
+                'Seoul': [
+                    {{ height: 14, width: 2, depth: 2, x: -10, name: 'Lotte World Tower' }},
+                    {{ height: 10, width: 1.5, depth: 1.5, x: -4, name: 'N Seoul Tower', antenna: true }},
+                    {{ height: 8, width: 3, depth: 2, x: 2, name: '63 Building' }},
+                    {{ height: 9, width: 2, depth: 2, x: 8, name: 'IFC Seoul' }},
+                ],
+                'Singapore': [
+                    {{ height: 11, width: 4, depth: 2, x: -8, name: 'Marina Bay Sands', mbs: true }},
+                    {{ height: 8, width: 2, depth: 2, x: -2, name: 'UOB Plaza' }},
+                    {{ height: 10, width: 2, depth: 2, x: 4, name: 'One Raffles' }},
+                    {{ height: 6, width: 2, depth: 2, x: 10, name: 'Esplanade', dome: true }},
+                ],
+                'Austin': [
+                    {{ height: 9, width: 2, depth: 2, x: -8, name: 'Frost Bank Tower' }},
+                    {{ height: 7, width: 3, depth: 2, x: -2, name: 'State Capitol', dome: true }},
+                    {{ height: 10, width: 2, depth: 2, x: 4, name: 'The Independent' }},
+                    {{ height: 6, width: 2, depth: 2, x: 10, name: 'Zilker Tower' }},
+                ],
+                'Tel Aviv': [
+                    {{ height: 10, width: 2, depth: 2, x: -8, name: 'Azrieli Center' }},
+                    {{ height: 8, width: 2, depth: 2, x: -2, name: 'Shalom Tower' }},
+                    {{ height: 9, width: 2, depth: 2, x: 4, name: 'Sarona Tower' }},
+                    {{ height: 7, width: 3, depth: 2, x: 10, name: 'Rothschild' }},
+                ],
+                'Zurich': [
+                    {{ height: 6, width: 2, depth: 2, x: -8, name: 'Grossmunster', spire: true }},
+                    {{ height: 8, width: 3, depth: 2, x: -2, name: 'Prime Tower' }},
+                    {{ height: 5, width: 2, depth: 2, x: 4, name: 'Fraumunster', spire: true }},
+                    {{ height: 7, width: 2, depth: 2, x: 10, name: 'Swiss Re' }},
+                ],
+            }};
+
+            function addCitySkyline() {{
+                // Extract city name from the coding city string
+                const codingCity = '{coding_city}';
+                let cityKey = 'London'; // default
+
+                for (const city of Object.keys(citySkylines)) {{
+                    if (codingCity.includes(city)) {{
+                        cityKey = city;
+                        break;
+                    }}
+                }}
+
+                const buildings = citySkylines[cityKey] || citySkylines['London'];
+                const buildingMaterial = new THREE.MeshStandardMaterial({{
+                    color: 0x1a1a2e,
+                    emissive: 0x8b5cf6,
+                    emissiveIntensity: 0.1,
+                    transparent: true,
+                    opacity: 0.6,
+                }});
+
+                buildings.forEach(b => {{
+                    // Main building body
+                    const geometry = new THREE.BoxGeometry(b.width, b.height, b.depth);
+                    const mesh = new THREE.Mesh(geometry, buildingMaterial);
+                    mesh.position.set(b.x, b.height / 2, -18); // Behind the data
+                    scene.add(mesh);
+
+                    // Add special features
+                    if (b.spire || b.antenna) {{
+                        const spireGeo = new THREE.CylinderGeometry(0.1, 0.2, b.height * 0.3, 8);
+                        const spire = new THREE.Mesh(spireGeo, buildingMaterial);
+                        spire.position.set(b.x, b.height + b.height * 0.15, -18);
+                        scene.add(spire);
+                    }}
+                    if (b.dome) {{
+                        const domeGeo = new THREE.SphereGeometry(b.width * 0.4, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+                        const dome = new THREE.Mesh(domeGeo, buildingMaterial);
+                        dome.position.set(b.x, b.height, -18);
+                        scene.add(dome);
+                    }}
+                    if (b.pyramid) {{
+                        const pyramidGeo = new THREE.ConeGeometry(b.width * 0.7, b.height * 0.3, 4);
+                        const pyramid = new THREE.Mesh(pyramidGeo, buildingMaterial);
+                        pyramid.position.set(b.x, b.height + b.height * 0.15, -18);
+                        scene.add(pyramid);
+                    }}
+                }});
+
+                // Add city name label
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
+                ctx.font = 'bold 24px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText(cityKey.toUpperCase(), 128, 40);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const labelMaterial = new THREE.SpriteMaterial({{ map: texture, transparent: true }});
+                const label = new THREE.Sprite(labelMaterial);
+                label.scale.set(8, 2, 1);
+                label.position.set(0, 18, -18);
+                scene.add(label);
             }}
 
             function addAxisLabels() {{

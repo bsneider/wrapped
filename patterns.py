@@ -37,9 +37,9 @@ FRAMEWORK_KEYWORDS = {
         'claude-flow init', 'claude-flow run', 'claude-flow generate',
         'claudeflow', 'claude_flow', 'using claude-flow', 'with claude-flow',
     ],
+    # SPARC detection reduced - only match explicit usage
     'sparc': [
-        'sparc', 'sparc methodology', 'sparc framework', 'sparc-',
-        'sparc workflow', 'sparc_', 'sparc.md', '/sparc',
+        'sparc methodology', 'sparc framework', 'sparc workflow',
     ],
     'langgraph': [
         'langgraph', 'lang graph', 'langchain graph', 'stategraph',
