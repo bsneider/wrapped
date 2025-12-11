@@ -227,15 +227,50 @@ def analyze_session(messages: list[dict], session_id: str, project_path: str) ->
             
             # Token usage
             usage = inner_msg.get('usage', {})
-            stats.total_input_tokens += usage.get('input_tokens', 0)
-            stats.total_output_tokens += usage.get('output_tokens', 0)
-            stats.cache_creation_tokens += usage.get('cache_creation_input_tokens', 0)
-            stats.cache_read_tokens += usage.get('cache_read_input_tokens', 0)
+            input_tokens = usage.get('input_tokens', 0)
+            output_tokens = usage.get('output_tokens', 0)
+            cache_creation = usage.get('cache_creation_input_tokens', 0)
+            cache_read = usage.get('cache_read_input_tokens', 0)
             
-            # Cost tracking
+            stats.total_input_tokens += input_tokens
+            stats.total_output_tokens += output_tokens
+            stats.cache_creation_tokens += cache_creation
+            stats.cache_read_tokens += cache_read
+            
+            # Cost tracking - use costUSD if present, otherwise calculate from tokens
             cost = msg.get('costUSD', 0)
             if cost:
                 stats.total_cost_usd += float(cost)
+            elif input_tokens or output_tokens:
+                # Calculate cost from tokens using Claude Sonnet 4 pricing as default
+                # Pricing per 1M tokens (as of late 2025):
+                # - Input: $3/1M, Output: $15/1M
+                # - Cache write: $3.75/1M, Cache read: $0.30/1M
+                # Adjust based on model if known
+                model = inner_msg.get('model', '')
+                if 'opus' in model.lower():
+                    input_price = 15.0 / 1_000_000  # $15/1M
+                    output_price = 75.0 / 1_000_000  # $75/1M
+                    cache_write_price = 18.75 / 1_000_000
+                    cache_read_price = 1.50 / 1_000_000
+                elif 'haiku' in model.lower():
+                    input_price = 0.25 / 1_000_000  # $0.25/1M
+                    output_price = 1.25 / 1_000_000  # $1.25/1M
+                    cache_write_price = 0.30 / 1_000_000
+                    cache_read_price = 0.03 / 1_000_000
+                else:  # Default to Sonnet pricing
+                    input_price = 3.0 / 1_000_000  # $3/1M
+                    output_price = 15.0 / 1_000_000  # $15/1M
+                    cache_write_price = 3.75 / 1_000_000
+                    cache_read_price = 0.30 / 1_000_000
+                
+                calculated_cost = (
+                    input_tokens * input_price +
+                    output_tokens * output_price +
+                    cache_creation * cache_write_price +
+                    cache_read * cache_read_price
+                )
+                stats.total_cost_usd += calculated_cost
             
             # Duration tracking
             duration = msg.get('durationMs', 0)
