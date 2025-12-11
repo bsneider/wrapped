@@ -16,466 +16,31 @@ from collections import defaultdict, Counter
 from typing import Optional
 from dataclasses import dataclass, field
 
+# Import patterns from centralized patterns.py
+from patterns import (
+    FRAMEWORK_KEYWORDS,
+    PROJECT_COMPONENTS,
+    CODING_CONCEPTS,
+    TECH_PATTERNS,
+    CATEGORY_PATTERNS,
+    FRAMEWORK_ICONS,
+    COMPONENT_ICONS,
+    CONCEPT_ICONS,
+    CATEGORY_PURPOSES,
+    DOMAIN_HINTS,
+)
 
-# Known frameworks/tools and their detection keywords (case-insensitive matching)
-FRAMEWORK_KEYWORDS = {
-    # AI/LLM Frameworks
-    'claude-flow': [
-        'claude-flow', '@anthropics/claude-flow', 'npm install claude-flow',
-        'npx claude-flow', 'yarn add claude-flow', 'pnpm add claude-flow',
-        '"claude-flow"', "'claude-flow'", 'flow.yaml', 'flow.yml',
-        'claude-flow init', 'claude-flow run', 'claude-flow generate',
-        'claudeflow', 'claude_flow', 'using claude-flow', 'with claude-flow',
-    ],
-    'sparc': [
-        'sparc', 'sparc methodology', 'sparc framework', 'sparc-',
-        'sparc workflow', 'sparc_', 'sparc.md', '/sparc',
-    ],
-    'agentic-engineering': [
-        '@agent-', 'agent-devops', 'agent-frontend', 'agent-backend',
-        'agentic-engineering', 'ciign', 'multi-agent', 'agent orchestration',
-    ],
-    'coscientist': [
-        'coscientist', 'co-scientist', 'scientific workflow',
-        'hypothesis generation', 'experiment design', 'literature review',
-    ],
-    'mcp': [
-        'mcp server', 'model context protocol', 'mcp-', '@mcp/',
-        'mcpservers', 'mcp tool', 'mcp integration', 'mcp.json',
-    ],
-    'langchain': [
-        'langchain', 'lcel', 'langsmith', 'langgraph', 'langserve',
-    ],
-    'crewai': [
-        'crewai', 'crew.ai', 'agent crew',
-    ],
-    'autogen': [
-        'autogen', 'pyautogen', 'autogen studio',
-    ],
-    'llamaindex': [
-        'llamaindex', 'llama_index', 'llama-index',
-    ],
 
-    # Web Frameworks
-    'nextjs': [
-        'next.js', 'nextjs', 'next/app', 'next/pages', 'next.config',
-        'getserversideprops', 'getstaticprops', 'app router', 'pages router',
-    ],
-    'react': [
-        'react', 'usestate', 'useeffect', 'jsx', 'tsx', 'react-dom',
-        'createroot', 'usecontext', 'usereducer', 'react hook',
-    ],
-    'vue': [
-        'vue.js', 'vuejs', 'vue 3', 'nuxt', 'composition api', 'pinia',
-        'vuex', '.vue', 'definecomponent',
-    ],
-    'svelte': [
-        'svelte', 'sveltekit', 'svelte.config',
-    ],
-    'fastapi': [
-        'fastapi', 'from fastapi', '@app.get', '@app.post', 'uvicorn',
-    ],
-    'express': [
-        'express.js', 'expressjs', 'app.get(', 'app.post(', 'express()',
-        'express.router', 'app.use(',
-    ],
-    'flask': [
-        'from flask', 'flask app', '@app.route', 'flask_',
-    ],
-    'django': [
-        'django', 'from django', 'django.db', 'django rest', 'drf',
-    ],
-    'hono': [
-        'hono', 'from hono', 'hono/cloudflare', 'hono.js',
-    ],
-
-    # Cloud & Infrastructure
-    'cloudflare': [
-        'cloudflare', 'workers', 'wrangler', 'cf-', 'd1 database',
-        'cloudflare pages', 'workers ai', 'r2', 'kv namespace',
-    ],
-    'vercel': [
-        'vercel', 'vercel.json', 'vercel deploy', 'vercel cli',
-    ],
-    'aws': [
-        'aws', 'amazon web services', 's3', 'lambda', 'ec2', 'dynamodb',
-        'cloudformation', 'cdk', 'boto3', 'aws-sdk', 'sagemaker', 'bedrock',
-        'aws bedrock', 'elasticache', 'rds', 'aurora', 'athena', 'glue',
-    ],
-    'gcp': [
-        'google cloud', 'gcp', 'cloud run', 'cloud functions',
-        'firestore', 'gcloud', 'vertex ai', 'cloud storage', 'pubsub',
-        'cloud sql', 'app engine', 'dataflow', 'dataproc',
-    ],
-    'bigquery': [
-        'bigquery', 'big query', 'bq ', 'google-cloud-bigquery',
-        'from google.cloud import bigquery', 'bigquery.client', 'bq query',
-    ],
-    'azure': [
-        'azure', 'microsoft azure', 'azure functions', 'azure blob',
-        'cosmos db', 'azure ai', 'azure openai', 'azure devops',
-    ],
-    'docker': [
-        'docker', 'dockerfile', 'docker-compose', 'container',
-        'docker build', 'docker run',
-    ],
-    'kubernetes': [
-        'kubernetes', 'k8s', 'kubectl', 'helm', 'deployment.yaml',
-        'pod', 'service.yaml',
-    ],
-    'terraform': [
-        'terraform', 'tf.', '.tf', 'terraform plan', 'terraform apply',
-        'terraform.tfstate', 'hcl',
-    ],
-
-    # Databases
-    'postgresql': [
-        'postgres', 'postgresql', 'psql', 'pg_', 'pgvector',
-    ],
-    'supabase': [
-        'supabase', 'supabase-js', '@supabase/supabase-js',
-    ],
-    'mongodb': [
-        'mongodb', 'mongoose', 'mongo', 'pymongo',
-    ],
-    'redis': [
-        'redis', 'ioredis', 'redis-cli', 'upstash',
-    ],
-    'sqlite': [
-        'sqlite', 'sqlite3', 'better-sqlite3',
-    ],
-    'prisma': [
-        'prisma', 'prisma.schema', 'prismaclient', '@prisma/client',
-    ],
-    'drizzle': [
-        'drizzle', 'drizzle-orm', 'drizzle-kit',
-    ],
-    'elasticsearch': [
-        'elasticsearch', 'elastic', 'es.', 'kibana', 'opensearch',
-    ],
-    'pinecone': [
-        'pinecone', 'pinecone-client', 'pinecone.init',
-    ],
-    'weaviate': [
-        'weaviate', 'weaviate-client',
-    ],
-    'qdrant': [
-        'qdrant', 'qdrant-client', 'qdrant_client',
-    ],
-    'chromadb': [
-        'chromadb', 'chroma', 'chromadb.client',
-    ],
-    'neo4j': [
-        'neo4j', 'cypher', 'neo4j-driver', 'py2neo',
-    ],
-
-    # External Data Sources & APIs
-    'pubmed': [
-        'pubmed', 'ncbi', 'entrez', 'biopython', 'pubmed api',
-        'medline', 'pubmed central', 'pmid', 'pmcid',
-    ],
-    'arxiv': [
-        'arxiv', 'arxiv api', 'arxiv.org', 'preprint',
-    ],
-    'semantic-scholar': [
-        'semantic scholar', 'semanticscholar', 's2_', 'paper api',
-    ],
-    'openalex': [
-        'openalex', 'open alex',
-    ],
-    'wikipedia': [
-        'wikipedia', 'wikimedia', 'wikidata', 'mediawiki',
-    ],
-    'twitter-api': [
-        'twitter api', 'tweepy', 'twitter-api-v2', 'x api',
-    ],
-    'github-api': [
-        'github api', 'octokit', 'pygithub', 'gh api',
-    ],
-    'notion-api': [
-        'notion api', '@notionhq', 'notion-client', 'notion.so',
-    ],
-    'slack-api': [
-        'slack api', 'slack-bolt', '@slack/bolt', 'slack webhook',
-    ],
-    'discord-api': [
-        'discord.py', 'discord.js', 'discord api', 'discord bot',
-    ],
-
-    # AI/ML Tools
-    'anthropic': [
-        'anthropic', 'claude api', 'claude-3', 'from anthropic',
-        '@anthropic-ai/sdk', 'anthropic.messages',
-    ],
-    'openai': [
-        'openai', 'gpt-4', 'gpt-3', 'chatgpt', 'from openai',
-        'openai.chat', 'openai api',
-    ],
-    'huggingface': [
-        'huggingface', 'transformers', 'from transformers', 'hf_',
-        'hugging face', 'datasets',
-    ],
-    'pytorch': [
-        'pytorch', 'torch', 'import torch', 'nn.module',
-    ],
-    'tensorflow': [
-        'tensorflow', 'import tensorflow', 'tf.keras', 'keras',
-    ],
-
-    # Testing & Quality
-    'jest': [
-        'jest', 'describe(', 'it(', 'expect(', 'jest.config',
-    ],
-    'vitest': [
-        'vitest', 'vitest.config',
-    ],
-    'pytest': [
-        'pytest', 'def test_', '@pytest', 'pytest.ini',
-    ],
-    'playwright': [
-        'playwright', '@playwright/test', 'page.goto',
-    ],
-    'cypress': [
-        'cypress', 'cy.', 'cypress.config',
-    ],
-
-    # Build Tools & Package Managers
-    'vite': [
-        'vite', 'vite.config', 'vitejs',
-    ],
-    'webpack': [
-        'webpack', 'webpack.config',
-    ],
-    'turborepo': [
-        'turborepo', 'turbo.json', 'turbo run',
-    ],
-    'pnpm': [
-        'pnpm', 'pnpm-workspace', 'pnpm install',
-    ],
-    'bun': [
-        'bun', 'bunx', 'bun.lockb', 'bun run',
-    ],
-
-    # Mobile
-    'react-native': [
-        'react native', 'react-native', 'expo', 'eas build',
-        'metro.config', 'app.json',
-    ],
-    'flutter': [
-        'flutter', 'dart', 'pubspec.yaml', 'widget',
-    ],
-    'swift': [
-        'swift', 'swiftui', 'uikit', 'xcodeproj',
-    ],
-
-    # Other Tools
-    'tailwindcss': [
-        'tailwind', 'tailwindcss', 'tailwind.config', '@apply',
-    ],
-    'shadcn': [
-        'shadcn', 'shadcn/ui', '@/components/ui',
-    ],
-    'trpc': [
-        'trpc', '@trpc', 'trpc.', 'createtrpcrouter',
-    ],
-    'graphql': [
-        'graphql', 'gql`', 'apollo', 'urql', 'type query',
-    ],
-    'websocket': [
-        'websocket', 'socket.io', 'ws://', 'wss://', 'socket.on',
-    ],
-    'stripe': [
-        'stripe', 'stripe.com', 'stripe api', 'payment_intent',
-    ],
-    'auth0': [
-        'auth0', '@auth0',
-    ],
-    'clerk': [
-        'clerk', '@clerk', 'clerkprovider',
-    ],
-    'zod': [
-        'zod', 'z.object', 'z.string', 'zodschema',
-    ],
-}
-
-# Project component types detection
-PROJECT_COMPONENTS = {
-    # Browser Extensions
-    'chrome-extension': [
-        'manifest.json', 'manifest_version', 'chrome.runtime', 'chrome.tabs',
-        'chrome.storage', 'content_script', 'background.js', 'popup.html',
-        'browser extension', 'chrome extension', 'firefox extension',
-    ],
-    'vscode-extension': [
-        'vscode extension', 'extension.ts', 'activate(context)', 'vscode.commands',
-        'contributes', 'extensionKind',
-    ],
-
-    # Frontend Components
-    'web-frontend': [
-        'src/frontend', 'src/web', 'src/client', 'pages/', 'components/',
-        'app.tsx', 'main.tsx', 'index.html', 'vite.config',
-    ],
-    'mobile-app': [
-        'react native', 'expo', 'ios/', 'android/', 'app.json',
-        'metro.config', 'eas.json', 'capacitor',
-    ],
-    'desktop-app': [
-        'electron', 'tauri', 'main.electron', 'preload.js',
-    ],
-
-    # Backend Components
-    'api-server': [
-        'src/api', 'api/', 'endpoints', 'routes/', 'controllers/',
-        'main.py', 'app.py', 'server.ts', 'fastapi', 'express',
-    ],
-    'graphql-api': [
-        'graphql', 'schema.graphql', 'resolvers/', 'typedefs',
-        'apollo server', 'type query', 'type mutation',
-    ],
-    'websocket-server': [
-        'websocket', 'socket.io', 'ws server', 'realtime',
-    ],
-
-    # Data & AI Components
-    'ml-pipeline': [
-        'ml/', 'models/', 'training/', 'inference/', 'pipeline',
-        'torch', 'tensorflow', 'sklearn', 'model.py',
-    ],
-    'data-ingestion': [
-        'ingestion/', 'etl/', 'pipeline/', 'scrapers/', 'crawlers/',
-        'data loader', 'batch process',
-    ],
-    'knowledge-graph': [
-        'graph/', 'neo4j', 'graphrag', 'knowledge graph', 'ontology',
-        'triple store', 'rdf', 'sparql',
-    ],
-
-    # Infrastructure Components
-    'kubernetes': [
-        'k8s/', 'kubernetes/', 'helm/', 'deployment.yaml',
-        'service.yaml', 'configmap', 'kustomize',
-    ],
-    'docker-compose': [
-        'docker-compose', 'compose.yml', 'compose.yaml',
-        'services:', 'container',
-    ],
-    'ci-cd-pipeline': [
-        '.github/workflows', 'gitlab-ci', 'jenkinsfile',
-        'ci/', 'cd/', 'pipeline.yml',
-    ],
-
-    # Other Components
-    'cli-tool': [
-        'cli/', 'bin/', 'commander', 'yargs', 'argparse',
-        'command line', 'terminal',
-    ],
-    'sdk-library': [
-        'sdk/', 'lib/', 'packages/', 'npm publish', 'pypi',
-        'library', 'package',
-    ],
-    'mcp-server': [
-        'mcp server', 'mcp.json', 'model context protocol',
-        'mcp-server', 'mcpServers',
-    ],
-    'agent-system': [
-        'agents/', '.agents/', 'agent orchestration', 'multi-agent',
-        'swarm', 'crew', 'hive',
-    ],
-}
-
-# Coding concepts/patterns detection
-CODING_CONCEPTS = {
-    # Architecture Patterns
-    'microservices': ['microservice', 'service mesh', 'api gateway', 'service discovery'],
-    'monorepo': ['monorepo', 'turborepo', 'nx workspace', 'lerna', 'pnpm workspace'],
-    'serverless': ['serverless', 'lambda', 'cloud functions', 'edge functions'],
-    'event-driven': ['event driven', 'event sourcing', 'cqrs', 'message queue', 'pub/sub'],
-    'clean-architecture': ['clean architecture', 'hexagonal', 'domain driven', 'ddd'],
-
-    # Code Quality
-    'testing': ['unit test', 'integration test', 'e2e test', 'test coverage', 'tdd', 'bdd'],
-    'linting': ['eslint', 'prettier', 'biome', 'ruff', 'black', 'flake8'],
-    'typescript-strict': ['strict mode', 'strictnullchecks', 'noimplicitany', 'type safety'],
-    'ci-cd': ['github actions', 'ci/cd', 'gitlab ci', 'jenkins', 'circleci', 'continuous integration'],
-    'documentation': ['jsdoc', 'typedoc', 'swagger', 'openapi', 'readme', 'docstring'],
-
-    # Design Patterns
-    'dependency-injection': ['dependency injection', 'ioc', 'inversion of control', 'di container'],
-    'factory-pattern': ['factory pattern', 'abstract factory', 'createinstance'],
-    'singleton': ['singleton', 'getinstance'],
-    'observer': ['observer pattern', 'subscribe', 'publish', 'event emitter'],
-    'repository-pattern': ['repository pattern', 'data access layer', 'dal'],
-
-    # Modern Practices
-    'api-first': ['api first', 'openapi', 'swagger', 'api design'],
-    'type-safety': ['type safe', 'strongly typed', 'typescript', 'type inference'],
-    'immutability': ['immutable', 'readonly', 'const', 'freeze'],
-    'functional': ['functional programming', 'pure function', 'higher order', 'map reduce'],
-    'reactive': ['reactive', 'rxjs', 'observable', 'signal', 'effect'],
-
-    # Security
-    'authentication': ['oauth', 'jwt', 'auth', 'login', 'session', 'token'],
-    'authorization': ['rbac', 'acl', 'permission', 'role based'],
-    'encryption': ['encrypt', 'hash', 'bcrypt', 'crypto', 'ssl', 'tls'],
-    'input-validation': ['validate', 'sanitize', 'escape', 'xss', 'injection'],
-
-    # Performance
-    'caching': ['cache', 'redis', 'memcached', 'cdn', 'memoize'],
-    'optimization': ['optimize', 'performance', 'lazy load', 'code split', 'tree shake'],
-    'async-patterns': ['async await', 'promise', 'concurrent', 'parallel', 'worker'],
-    'streaming': ['stream', 'chunk', 'buffer', 'pipe'],
-
-    # Agentic Orchestration Patterns
-    'graph-orchestration': [
-        'graph orchestration', 'langgraph', 'dag', 'directed acyclic',
-        'node graph', 'workflow graph', 'state graph', 'graph-based',
-        'graph execution', 'dependency graph',
-    ],
-    'hierarchical-orchestration': [
-        'hierarchical', 'tree structure', 'parent agent', 'child agent',
-        'supervisor', 'manager agent', 'worker agent', 'delegation',
-        'top-down', 'chain of command', 'crew', 'crewai',
-    ],
-    'swarm-orchestration': [
-        'swarm', 'swarm intelligence', 'emergent', 'decentralized',
-        'peer-to-peer', 'consensus', 'distributed agents', 'hive mind',
-    ],
-    'pipeline-orchestration': [
-        'pipeline', 'sequential', 'chain', 'step-by-step',
-        'workflow pipeline', 'stage', 'phase',
-    ],
-}
-
-# Technology detection patterns (for README analysis)
-TECH_PATTERNS = {
-    'python': [r'\.py\b', r'python', r'pip install', r'requirements\.txt', r'pyproject\.toml'],
-    'typescript': [r'\.ts\b', r'typescript', r'\.tsx\b'],
-    'javascript': [r'\.js\b', r'javascript', r'node', r'npm', r'yarn'],
-    'react': [r'react', r'jsx', r'tsx', r'next\.js', r'nextjs'],
-    'vue': [r'vue', r'\.vue\b', r'nuxt'],
-    'rust': [r'\.rs\b', r'cargo', r'rust'],
-    'go': [r'\.go\b', r'golang', r'go mod'],
-    'cloudflare': [r'cloudflare', r'workers', r'wrangler', r'cf-'],
-    'docker': [r'docker', r'dockerfile', r'compose'],
-    'kubernetes': [r'kubernetes', r'k8s', r'kubectl', r'helm'],
-    'ai/ml': [r'anthropic', r'openai', r'llm', r'gpt', r'claude', r'transformer'],
-    'database': [r'postgres', r'mysql', r'mongodb', r'redis', r'sqlite', r'supabase'],
-}
-
-# Project category patterns
-CATEGORY_PATTERNS = {
-    'ai-agent': ['agent', 'agentic', 'autonomous', 'multi-agent', 'swarm'],
-    'scientific': ['coscientist', 'research', 'hypothesis', 'experiment', 'scientific', 'pubmed', 'arxiv'],
-    'data-science': ['bigquery', 'analytics', 'data science', 'pandas', 'numpy', 'jupyter', 'datascience'],
-    'web-app': ['frontend', 'backend', 'fullstack', 'web app', 'dashboard'],
-    'cli-tool': ['cli', 'command line', 'terminal'],
-    'api': ['api', 'rest', 'graphql', 'endpoint'],
-    'mobile': ['mobile', 'ios', 'android', 'react native', 'flutter'],
-    'infrastructure': ['infra', 'devops', 'deploy', 'ci/cd', 'kubernetes', 'terraform'],
-    'data': ['data', 'etl', 'pipeline', 'analytics', 'visualization', 'ingestion'],
-    'ml': ['machine learning', 'ml', 'neural', 'training', 'inference', 'model'],
-}
+# All patterns are now imported from patterns.py above
+# The centralized patterns.py file contains:
+# - FRAMEWORK_KEYWORDS: Detection patterns for 150+ frameworks, tools, and services
+# - PROJECT_COMPONENTS: Component types (chrome-extension, api-server, etc.)
+# - CODING_CONCEPTS: Architecture and coding patterns
+# - TECH_PATTERNS: Technology detection for README analysis
+# - CATEGORY_PATTERNS: Project categorization patterns
+# - *_ICONS: Display icons for each category
+# - DOMAIN_HINTS: Summary generation helpers
+# - CATEGORY_PURPOSES: Category purpose descriptions
 
 
 @dataclass
@@ -632,7 +197,8 @@ def generate_project_summary(
         return ' '.join(words) + '...'
 
     # Build summary from detected components and purpose
-    component_purposes = {
+    # Component prefixes for summary generation
+    component_prefixes = {
         'chrome-extension': 'Browser extension for',
         'vscode-extension': 'VSCode extension for',
         'web-frontend': 'Web interface for',
@@ -644,6 +210,7 @@ def generate_project_summary(
         'ml-pipeline': 'ML pipeline for',
         'data-ingestion': 'Data ingestion system for',
         'knowledge-graph': 'Knowledge graph for',
+        'rag-system': 'RAG system for',
         'kubernetes': 'K8s-deployed',
         'docker-compose': 'Containerized',
         'ci-cd-pipeline': 'CI/CD for',
@@ -653,73 +220,26 @@ def generate_project_summary(
         'agent-system': 'Multi-agent system for',
     }
 
-    # Domain keywords from frameworks
-    domain_hints = {
-        # AI/LLM
-        'coscientist': 'scientific research',
-        'langchain': 'LLM orchestration',
-        'anthropic': 'Claude AI integration',
-        'openai': 'GPT integration',
-        'huggingface': 'ML models',
-        'crewai': 'agent teams',
-        'autogen': 'conversational AI',
-        # Cloud & Data
-        'cloudflare': 'edge computing',
-        'bigquery': 'data analytics',
-        'aws': 'cloud infrastructure',
-        'gcp': 'cloud services',
-        'azure': 'cloud platform',
-        'supabase': 'data management',
-        'postgresql': 'data storage',
-        'elasticsearch': 'search',
-        'pinecone': 'vector search',
-        'chromadb': 'embeddings',
-        'neo4j': 'graph database',
-        # External Data Sources
-        'pubmed': 'biomedical research',
-        'arxiv': 'research papers',
-        'semantic-scholar': 'academic literature',
-        'wikipedia': 'knowledge base',
-        'github-api': 'code repositories',
-        # Web
-        'react-native': 'cross-platform mobile',
-        'nextjs': 'web application',
-        'fastapi': 'API services',
-        'graphql': 'data querying',
-    }
-
-    # Category to purpose mapping
-    category_purposes = {
-        'ai-agent': 'AI agent orchestration',
-        'scientific': 'scientific workflows',
-        'data-science': 'data science & analytics',
-        'web-app': 'web application',
-        'cli-tool': 'command-line tasks',
-        'api': 'API services',
-        'mobile': 'mobile experience',
-        'infrastructure': 'infrastructure management',
-        'data': 'data processing',
-        'ml': 'machine learning',
-    }
+    # Use imported DOMAIN_HINTS and CATEGORY_PURPOSES from patterns.py
 
     summary_parts = []
 
     # Start with component type
     if components:
         top_comp = components[0]
-        if top_comp in component_purposes:
-            summary_parts.append(component_purposes[top_comp])
+        if top_comp in component_prefixes:
+            summary_parts.append(component_prefixes[top_comp])
 
     # Add domain/purpose from frameworks
     for fw in frameworks[:3]:
-        if fw in domain_hints:
-            summary_parts.append(domain_hints[fw])
+        if fw in DOMAIN_HINTS:
+            summary_parts.append(DOMAIN_HINTS[fw])
             break
 
     # Or from category
     if not summary_parts or len(summary_parts) == 1:
-        if category in category_purposes:
-            summary_parts.append(category_purposes[category])
+        if category in CATEGORY_PURPOSES:
+            summary_parts.append(CATEGORY_PURPOSES[category])
 
     # Add specific functionality hints from name
     name_lower = name.lower()
