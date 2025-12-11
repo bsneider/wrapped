@@ -227,6 +227,8 @@ def generate_html(data: dict) -> str:
     <title>Claude Wrapped 2025</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {{
@@ -1508,6 +1510,22 @@ def generate_html(data: dict) -> str:
             font-family: 'JetBrains Mono', monospace;
         }}
 
+        /* 3D Skyline tooltip */
+        .skyline-3d-tooltip {{
+            position: fixed;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid var(--neon-purple);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(139,92,246,0.3);
+        }}
+
         /* Ring tooltip */
         .ring-tooltip {{
             position: fixed;
@@ -1829,40 +1847,40 @@ def generate_html(data: dict) -> str:
         </section>
         
         <!-- The Money -->
-        <section class="chart-section money-section">
-            <div class="chart-title"><span>💸</span> The Damage</div>
-            <div class="money-value">{cost_formatted}</div>
+        <section class="chart-section money-section" aria-labelledby="money-title">
+            <div class="chart-title" id="money-title"><span aria-hidden="true">💸</span> The Damage</div>
+            <div class="money-value" role="text" aria-label="Total cost: {cost_formatted}">{cost_formatted}</div>
             <p class="burrito-equivalent">That's <span>${total_cost:,.2f}</span> worth of burritos (<span>{int(burritos):,}</span> at $12 each).</p>
         </section>
         
         <!-- Verdicts -->
-        <section class="verdict-section">
-            <div class="verdict-grid">
+        <section class="verdict-section" aria-label="Your coding verdicts and statistics">
+            <div class="verdict-grid" role="list">
                 <!-- Yapping Index -->
-                <div class="verdict-card pink">
-                    <div class="verdict-icon">🗣️</div>
+                <article class="verdict-card pink" role="listitem" aria-labelledby="yapping-title">
+                    <div class="verdict-icon" aria-hidden="true">🗣️</div>
                     <div class="verdict-subtitle">The Yapping Index</div>
-                    <div class="verdict-title">{yapping_title}</div>
+                    <div class="verdict-title" id="yapping-title">{yapping_title}</div>
                     <div class="verdict-desc">{yapping_desc}</div>
-                    <div class="verdict-stat">{data.get('user_to_assistant_token_ratio', 0):.2f}x ratio</div>
-                </div>
-                
+                    <div class="verdict-stat" title="Ratio of your tokens to Claude's tokens">{data.get('user_to_assistant_token_ratio', 0):.2f}x ratio</div>
+                </article>
+
                 <!-- Cache Efficiency -->
-                <div class="verdict-card cyan">
-                    <div class="verdict-icon">🧠</div>
+                <article class="verdict-card cyan" role="listitem" aria-labelledby="cache-title">
+                    <div class="verdict-icon" aria-hidden="true">🧠</div>
                     <div class="verdict-subtitle">Cache Efficiency</div>
-                    <div class="verdict-title">{cache_title}</div>
+                    <div class="verdict-title" id="cache-title">{cache_title}</div>
                     <div class="verdict-desc">{cache_desc}</div>
-                    <div class="verdict-stat">{data.get('cache_efficiency_ratio', 0)*100:.1f}% reuse</div>
-                </div>
-                
+                    <div class="verdict-stat" title="Percentage of tokens served from cache">{data.get('cache_efficiency_ratio', 0)*100:.1f}% reuse</div>
+                </article>
+
                 <!-- Bio Rhythm -->
-                <div class="verdict-card purple">
-                    <div class="verdict-icon">🌙</div>
+                <article class="verdict-card purple" role="listitem" aria-labelledby="bio-title">
+                    <div class="verdict-icon" aria-hidden="true">🌙</div>
                     <div class="verdict-subtitle">Bio Rhythm</div>
-                    <div class="verdict-title">{time_title}</div>
+                    <div class="verdict-title" id="bio-title">{time_title}</div>
                     <div class="verdict-desc">{time_desc}</div>
-                </div>
+                </article>
             </div>
         </section>
         
@@ -1896,41 +1914,32 @@ def generate_html(data: dict) -> str:
         </section>
         
         <!-- Bio Rhythm Chart -->
-        <section class="chart-section">
-            <div class="chart-title"><span>⏰</span> When You Code</div>
+        <section class="chart-section" aria-labelledby="bio-rhythm-chart-title">
+            <div class="chart-title" id="bio-rhythm-chart-title"><span aria-hidden="true">⏰</span> When You Code</div>
             <div class="chart-container">
-                <canvas id="hourlyChart"></canvas>
+                <canvas id="hourlyChart" role="img" aria-label="Bar chart showing coding activity distribution across 24 hours of the day"></canvas>
             </div>
         </section>
-        
-        <!-- Weekday Distribution -->
-        <section class="chart-section">
-            <div class="chart-title"><span>📅</span> Weekday Warrior</div>
-            <div class="chart-container">
-                <canvas id="weekdayChart"></canvas>
-            </div>
-        </section>
-        
-        <!-- 🌟 MEGA CHART: Token Skyline 🌟 -->
-        <section class="chart-section year-in-code">
-            <div class="chart-title"><span>🏙️</span> Your Coding Skyline</div>
+
+        <!-- 🌟 MEGA CHART: 3D Token Skyline 🌟 -->
+        <section class="chart-section year-in-code" aria-labelledby="skyline-chart-title">
+            <div class="chart-title" id="skyline-chart-title"><span aria-hidden="true">🏙️</span> Your 3D Coding Skyline</div>
             <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1rem; font-size: 0.9rem;">
-                Each bar is a day. Hover for details. Different colors = different metrics.
+                X = Days of Week, Y = Activity, Z = Weeks. Drag to rotate. Scroll to zoom. Click bars for details.
             </p>
-            <div class="heatmap-controls">
-                <button class="heatmap-btn active" data-metric="sessions" style="border-color: var(--neon-cyan); color: var(--neon-cyan);">📊 Sessions</button>
-                <button class="heatmap-btn" data-metric="tokens" style="border-color: var(--neon-purple); color: var(--neon-purple);">🔤 Tokens</button>
-                <button class="heatmap-btn" data-metric="cost" style="border-color: var(--neon-pink); color: var(--neon-pink);">💰 Cost</button>
+            <div class="heatmap-controls" role="group" aria-label="Metric selection">
+                <button class="heatmap-btn active" data-metric="sessions" style="border-color: var(--neon-cyan); color: var(--neon-cyan);" aria-pressed="true">📊 Sessions</button>
+                <button class="heatmap-btn" data-metric="tokens" style="border-color: var(--neon-purple); color: var(--neon-purple);" aria-pressed="false">🔤 Tokens</button>
+                <button class="heatmap-btn" data-metric="cost" style="border-color: var(--neon-pink); color: var(--neon-pink);" aria-pressed="false">💰 Cost</button>
             </div>
             <div class="skyline-wrapper">
                 <div class="skyline-total">
                     <div class="skyline-total-value" id="skylineTotalValue">0</div>
                     <div class="skyline-total-label" id="skylineTotalLabel">Total Sessions</div>
                 </div>
-                <div class="skyline-months" id="skylineMonths"></div>
-                <div class="skyline-container" id="skylineContainer"></div>
+                <div id="skyline3D" style="width: 100%; height: 400px; border-radius: 16px; overflow: hidden; background: linear-gradient(180deg, rgba(10,10,15,0.9) 0%, rgba(20,20,35,0.9) 100%);" role="img" aria-label="3D visualization of coding activity over time"></div>
+                <div id="skyline3DTooltip" class="skyline-3d-tooltip"></div>
             </div>
-            <div class="heatmap-tooltip" id="heatmapTooltip"></div>
             <div class="heatmap-stats" id="heatmapStats">
                 <div class="heatmap-stat">
                     <div class="heatmap-stat-value" id="statTotalDays">0</div>
@@ -1946,19 +1955,11 @@ def generate_html(data: dict) -> str:
                 </div>
             </div>
 
-            <!-- Activity Ring: Weekly Pattern -->
+            <!-- Activity Ring: Weekly Pattern - Using Chart.js for interactivity -->
             <div class="chart-title" style="margin-top: 3rem;"><span>🎯</span> Weekly Activity Ring</div>
-            <div class="activity-ring-section">
-                <div class="activity-ring-container">
-                    <canvas id="activityRing" width="280" height="280"></canvas>
-                    <div class="ring-center">
-                        <div class="ring-center-value" id="ringTotal">0</div>
-                        <div class="ring-center-label">Total Sessions</div>
-                    </div>
-                </div>
-                <div class="ring-legend" id="ringLegend"></div>
+            <div class="chart-container" style="max-width: 400px; margin: 0 auto;">
+                <canvas id="weekdayRingChart" role="img" aria-label="Weekly activity distribution showing sessions per day of the week"></canvas>
             </div>
-            <div class="ring-tooltip" id="ringTooltip"></div>
         </section>
         
         <!-- The Graveyard -->
@@ -2193,38 +2194,7 @@ def generate_html(data: dict) -> str:
                 }}
             }}
         }});
-        
-        // Weekday chart
-        new Chart(document.getElementById('weekdayChart'), {{
-            type: 'bar',
-            data: {{
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                datasets: [{{
-                    label: 'Sessions',
-                    data: {json.dumps(weekday_values)},
-                    backgroundColor: [neonCyan, neonCyan, neonCyan, neonCyan, neonCyan, neonPink, neonPink],
-                    borderRadius: 8,
-                }}]
-            }},
-            options: {{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {{
-                    legend: {{ display: false }},
-                }},
-                scales: {{
-                    x: {{
-                        grid: {{ color: 'rgba(255,255,255,0.05)' }},
-                        ticks: {{ color: 'rgba(255,255,255,0.5)' }}
-                    }},
-                    y: {{
-                        grid: {{ color: 'rgba(255,255,255,0.05)' }},
-                        ticks: {{ color: 'rgba(255,255,255,0.5)' }}
-                    }}
-                }}
-            }}
-        }});
-        
+
         // Tool chart
         new Chart(document.getElementById('toolChart'), {{
             type: 'doughnut',
@@ -2250,25 +2220,90 @@ def generate_html(data: dict) -> str:
                 }}
             }}
         }});
-        
-        // 🌟 TOKEN SKYLINE + ACTIVITY RING 🌟
+
+        // Weekday Activity Ring Chart (using Chart.js for full interactivity)
+        new Chart(document.getElementById('weekdayRingChart'), {{
+            type: 'doughnut',
+            data: {{
+                labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                datasets: [{{
+                    data: {json.dumps(weekday_values)},
+                    backgroundColor: [neonCyan, '#00d4e6', neonPurple, '#a78bfa', neonPink, '#ff4d8d', neonOrange],
+                    borderWidth: 2,
+                    borderColor: 'rgba(10, 10, 15, 0.8)',
+                    hoverBorderWidth: 3,
+                    hoverBorderColor: '#fff',
+                }}]
+            }},
+            options: {{
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '60%',
+                plugins: {{
+                    legend: {{
+                        position: 'bottom',
+                        labels: {{
+                            color: 'rgba(255,255,255,0.8)',
+                            font: {{ family: "'JetBrains Mono', monospace", size: 11 }},
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }}
+                    }},
+                    tooltip: {{
+                        backgroundColor: 'rgba(10, 10, 15, 0.95)',
+                        titleColor: neonCyan,
+                        bodyColor: 'rgba(255,255,255,0.9)',
+                        borderColor: neonPurple,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        titleFont: {{ family: "'Orbitron', monospace", weight: 'bold', size: 14 }},
+                        bodyFont: {{ family: "'JetBrains Mono', monospace", size: 12 }},
+                        callbacks: {{
+                            label: function(context) {{
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return [
+                                    `Sessions: ${{context.parsed}}`,
+                                    `Share: ${{percentage}}% of week`
+                                ];
+                            }}
+                        }}
+                    }}
+                }},
+                animation: {{
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 1500,
+                    easing: 'easeOutQuart'
+                }}
+            }}
+        }});
+
+        // 🌟 TRUE 3D TOKEN SKYLINE with Three.js 🌟
         (function() {{
             const sessionsData = {json.dumps(sessions_by_date)};
             const tokensData = {json.dumps(data.get('tokens_by_date', {}))};
             const costData = {json.dumps(data.get('cost_by_date', {}))};
-            const weekdayData = {json.dumps(dict(weekday_data))};
 
-            const skylineContainer = document.getElementById('skylineContainer');
-            const tooltip = document.getElementById('heatmapTooltip');
+            const container = document.getElementById('skyline3D');
+            const tooltip = document.getElementById('skyline3DTooltip');
             const statTotalDays = document.getElementById('statTotalDays');
             const statBestDay = document.getElementById('statBestDay');
             const statBestMonth = document.getElementById('statBestMonth');
-            const ringCanvas = document.getElementById('activityRing');
-            const ringTotal = document.getElementById('ringTotal');
-            const ringLegend = document.getElementById('ringLegend');
+            const skylineTotalValue = document.getElementById('skylineTotalValue');
+            const skylineTotalLabel = document.getElementById('skylineTotalLabel');
+
+            if (!container || typeof THREE === 'undefined') {{
+                console.warn('Three.js or container not available');
+                return;
+            }}
 
             let currentMetric = 'sessions';
+            let scene, camera, renderer, controls;
             let bars = [];
+            let selectedBar = null;
 
             // Collect all dates with data and sort them
             const allDates = [...new Set([
@@ -2277,59 +2312,232 @@ def generate_html(data: dict) -> str:
                 ...Object.keys(costData)
             ])].filter(d => sessionsData[d] > 0 || tokensData[d] > 0 || costData[d] > 0).sort();
 
+            // Organize data by week (Z-axis) and day of week (X-axis)
+            function organizeByWeekAndDay() {{
+                const weekData = [];
+                let currentWeek = [];
+                let lastWeekNum = -1;
+
+                allDates.forEach(dateStr => {{
+                    const date = new Date(dateStr);
+                    const dayOfWeek = date.getDay(); // 0=Sun, 6=Sat
+                    const weekNum = getWeekNumber(date);
+
+                    if (lastWeekNum !== -1 && weekNum !== lastWeekNum) {{
+                        weekData.push(currentWeek);
+                        currentWeek = [];
+                    }}
+
+                    currentWeek.push({{ dateStr, dayOfWeek }});
+                    lastWeekNum = weekNum;
+                }});
+
+                if (currentWeek.length > 0) weekData.push(currentWeek);
+                return weekData;
+            }}
+
+            function getWeekNumber(date) {{
+                const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                const dayNum = d.getUTCDay() || 7;
+                d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            }}
+
             function getData(metric) {{
                 return metric === 'sessions' ? sessionsData :
                        metric === 'tokens' ? tokensData : costData;
+            }}
+
+            function getColor(metric) {{
+                const colors = {{
+                    sessions: {{ main: 0x00f5ff, secondary: 0x0891b2 }},  // Cyan
+                    tokens: {{ main: 0x8b5cf6, secondary: 0x7c3aed }},    // Purple
+                    cost: {{ main: 0xff006e, secondary: 0xdb2777 }}        // Pink
+                }};
+                return colors[metric] || colors.sessions;
             }}
 
             function formatValue(value, metric) {{
                 if (metric === 'tokens') {{
                     if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
                     if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
-                    return value;
+                    return value.toString();
                 }}
                 if (metric === 'cost') return '$' + parseFloat(value).toFixed(2);
-                return value;
+                return value.toString();
             }}
 
-            function showTooltip(e, dateStr) {{
-                const date = new Date(dateStr);
+            // Initialize Three.js scene
+            function initScene() {{
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+
+                // Scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0a0a0f);
+
+                // Camera
+                camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+                camera.position.set(15, 12, 20);
+                camera.lookAt(0, 0, 0);
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(renderer.domElement);
+
+                // OrbitControls
+                if (THREE.OrbitControls) {{
+                    controls = new THREE.OrbitControls(camera, renderer.domElement);
+                    controls.enableDamping = true;
+                    controls.dampingFactor = 0.05;
+                    controls.minDistance = 10;
+                    controls.maxDistance = 50;
+                    controls.maxPolarAngle = Math.PI / 2;
+                }}
+
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 20, 10);
+                scene.add(directionalLight);
+
+                const pointLight = new THREE.PointLight(0x8b5cf6, 0.5, 50);
+                pointLight.position.set(-10, 10, -10);
+                scene.add(pointLight);
+
+                // Add grid helper (ground plane)
+                const gridHelper = new THREE.GridHelper(30, 30, 0x8b5cf6, 0x1a1a2e);
+                gridHelper.position.y = -0.1;
+                scene.add(gridHelper);
+
+                // Add axis labels
+                addAxisLabels();
+
+                // Raycaster for click/hover detection
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+
+                container.addEventListener('mousemove', (e) => {{
+                    const rect = container.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(bars.map(b => b.mesh));
+
+                    if (intersects.length > 0) {{
+                        const barData = bars.find(b => b.mesh === intersects[0].object);
+                        if (barData) {{
+                            showTooltip(e, barData);
+                            container.style.cursor = 'pointer';
+                        }}
+                    }} else {{
+                        hideTooltip();
+                        container.style.cursor = 'grab';
+                    }}
+                }});
+
+                container.addEventListener('click', (e) => {{
+                    const rect = container.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(bars.map(b => b.mesh));
+
+                    if (intersects.length > 0) {{
+                        const barData = bars.find(b => b.mesh === intersects[0].object);
+                        if (barData) {{
+                            highlightBar(barData);
+                        }}
+                    }}
+                }});
+
+                // Handle resize
+                window.addEventListener('resize', () => {{
+                    const w = container.clientWidth;
+                    const h = container.clientHeight;
+                    camera.aspect = w / h;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(w, h);
+                }});
+            }}
+
+            function addAxisLabels() {{
+                // Day labels on X axis
+                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                days.forEach((day, i) => {{
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 64;
+                    canvas.height = 32;
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.font = 'bold 16px Orbitron';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(day, 32, 20);
+
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const material = new THREE.SpriteMaterial({{ map: texture, transparent: true }});
+                    const sprite = new THREE.Sprite(material);
+                    sprite.scale.set(2, 1, 1);
+                    sprite.position.set((i - 3) * 1.5, -0.5, -8);
+                    scene.add(sprite);
+                }});
+            }}
+
+            function showTooltip(e, barData) {{
+                const date = new Date(barData.dateStr);
                 const formattedDate = date.toLocaleDateString('en-US', {{
                     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
                 }});
 
                 tooltip.innerHTML = `
-                    <div class="tooltip-date">${{formattedDate}}</div>
-                    <div class="tooltip-stats">
-                        <span class="tooltip-label">Sessions:</span>
-                        <span class="tooltip-value">${{sessionsData[dateStr] || 0}}</span>
-                        <span class="tooltip-label">Tokens:</span>
-                        <span class="tooltip-value">${{formatValue(tokensData[dateStr] || 0, 'tokens')}}</span>
-                        <span class="tooltip-label">Cost:</span>
-                        <span class="tooltip-value">${{formatValue(costData[dateStr] || 0, 'cost')}}</span>
+                    <div style="font-family: Orbitron; color: #00f5ff; font-size: 0.9rem; margin-bottom: 0.5rem;">${{formattedDate}}</div>
+                    <div style="display: grid; grid-template-columns: auto auto; gap: 0.25rem 0.75rem;">
+                        <span style="color: rgba(255,255,255,0.6);">Sessions:</span>
+                        <span style="color: #00f5ff; font-family: 'JetBrains Mono';">${{sessionsData[barData.dateStr] || 0}}</span>
+                        <span style="color: rgba(255,255,255,0.6);">Tokens:</span>
+                        <span style="color: #8b5cf6; font-family: 'JetBrains Mono';">${{formatValue(tokensData[barData.dateStr] || 0, 'tokens')}}</span>
+                        <span style="color: rgba(255,255,255,0.6);">Cost:</span>
+                        <span style="color: #ff006e; font-family: 'JetBrains Mono';">${{formatValue(costData[barData.dateStr] || 0, 'cost')}}</span>
                     </div>
                 `;
 
-                tooltip.style.left = e.pageX + 15 + 'px';
-                tooltip.style.top = e.pageY - 10 + 'px';
-                tooltip.classList.add('visible');
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY - 10) + 'px';
+                tooltip.style.opacity = '1';
+                tooltip.style.visibility = 'visible';
             }}
 
             function hideTooltip() {{
-                tooltip.classList.remove('visible');
+                tooltip.style.opacity = '0';
+                tooltip.style.visibility = 'hidden';
             }}
 
-            const skylineTotalValue = document.getElementById('skylineTotalValue');
-            const skylineTotalLabel = document.getElementById('skylineTotalLabel');
-            const skylineMonths = document.getElementById('skylineMonths');
+            function highlightBar(barData) {{
+                // Reset previous selection
+                if (selectedBar) {{
+                    selectedBar.mesh.material.emissiveIntensity = 0.3;
+                }}
+                selectedBar = barData;
+                barData.mesh.material.emissiveIntensity = 1.0;
+            }}
 
             function buildSkyline(metric) {{
-                skylineContainer.innerHTML = '';
+                // Clear existing bars
+                bars.forEach(b => scene.remove(b.mesh));
                 bars = [];
+
                 const data = getData(metric);
-                const values = allDates.map(d => data[d] || 0);
-                const max = Math.max(...values, 1);
-                const total = values.reduce((a, b) => a + b, 0);
+                const weekData = organizeByWeekAndDay();
+                const allValues = allDates.map(d => data[d] || 0);
+                const maxValue = Math.max(...allValues, 1);
+                const total = allValues.reduce((a, b) => a + b, 0);
 
                 // Update total display
                 if (metric === 'sessions') {{
@@ -2343,61 +2551,45 @@ def generate_html(data: dict) -> str:
                     skylineTotalLabel.textContent = 'Total Cost';
                 }}
 
-                // Build month labels
-                const months = {{}};
-                allDates.forEach(d => {{
-                    const m = d.substring(0, 7);
-                    if (!months[m]) months[m] = true;
-                }});
-                skylineMonths.innerHTML = Object.keys(months).map(m => {{
-                    const date = new Date(m + '-01');
-                    return `<span>${{date.toLocaleDateString('en-US', {{ month: 'short' }})}}</span>`;
-                }}).join('');
+                const colors = getColor(metric);
+                const barSpacing = 1.5;
+                const barSize = 1.0;
 
-                allDates.forEach((dateStr, i) => {{
-                    const value = data[dateStr] || 0;
-                    const height = Math.max(8, (value / max) * 200); // Min height 8px, max 200px
+                // Create bars organized by week (Z) and day (X)
+                weekData.forEach((week, weekIndex) => {{
+                    week.forEach((item) => {{
+                        const value = data[item.dateStr] || 0;
+                        if (value === 0) return;
 
-                    const bar = document.createElement('div');
-                    bar.className = `skyline-bar metric-${{metric}}`;
-                    bar.style.height = height + 'px';
-                    bar.style.animationDelay = (i * 40) + 'ms';
-                    bar.dataset.date = dateStr;
-                    bar.dataset.value = value;
+                        const height = Math.max(0.2, (value / maxValue) * 8);
+                        const x = (item.dayOfWeek - 3) * barSpacing; // Center around 0
+                        const z = (weekIndex - weekData.length / 2) * barSpacing;
 
-                    // Add 3D elements for depth effect
-                    const sideDiv = document.createElement('div');
-                    sideDiv.className = 'bar-side';
-                    bar.appendChild(sideDiv);
+                        // Create bar geometry
+                        const geometry = new THREE.BoxGeometry(barSize, height, barSize);
+                        const material = new THREE.MeshStandardMaterial({{
+                            color: colors.main,
+                            emissive: colors.main,
+                            emissiveIntensity: 0.3,
+                            metalness: 0.3,
+                            roughness: 0.5
+                        }});
 
-                    const topDiv = document.createElement('div');
-                    topDiv.className = 'bar-top';
-                    bar.appendChild(topDiv);
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.position.set(x, height / 2, z);
 
-                    // Add data label for hover
-                    let labelText;
-                    if (metric === 'sessions') {{
-                        labelText = value;
-                    }} else if (metric === 'tokens') {{
-                        labelText = value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : value >= 1000 ? (value/1000).toFixed(0) + 'K' : value;
-                    }} else {{
-                        labelText = '$' + value.toFixed(2);
-                    }}
-
-                    const labelDiv = document.createElement('div');
-                    labelDiv.className = 'bar-label';
-                    labelDiv.textContent = labelText;
-                    bar.appendChild(labelDiv);
-
-                    bar.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
-                    bar.addEventListener('mouseleave', hideTooltip);
-
-                    skylineContainer.appendChild(bar);
-                    bars.push(bar);
+                        scene.add(mesh);
+                        bars.push({{ mesh, dateStr: item.dateStr, value, dayOfWeek: item.dayOfWeek, week: weekIndex }});
+                    }});
                 }});
 
                 // Update stats
                 updateStats(metric);
+
+                // Animate camera to good viewing position
+                if (controls) {{
+                    controls.reset();
+                }}
             }}
 
             function updateStats(metric) {{
@@ -2439,147 +2631,32 @@ def generate_html(data: dict) -> str:
                 }}
             }}
 
-            // Activity Ring - Weekly Pattern
-            let ringSegments = []; // Store segment data for hover detection
-            const ringTooltip = document.getElementById('ringTooltip');
-
-            function drawActivityRing() {{
-                const ctx = ringCanvas.getContext('2d');
-                const centerX = 140;
-                const centerY = 140;
-                const outerRadius = 130;
-                const innerRadius = 85;
-
-                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                const colors = ['#00f5ff', '#00d4e6', '#8b5cf6', '#a78bfa', '#ff006e', '#ff4d8d', '#ff9500'];
-                const values = days.map(d => weekdayData[d] || 0);
-                const total = values.reduce((a, b) => a + b, 0);
-
-                ringTotal.textContent = total;
-                ringSegments = []; // Reset segments
-
-                ctx.clearRect(0, 0, 280, 280);
-
-                if (total === 0) return;
-
-                let startAngle = -Math.PI / 2; // Start at top
-
-                days.forEach((day, i) => {{
-                    const value = values[i];
-                    if (value === 0) return;
-
-                    const sweepAngle = (value / total) * 2 * Math.PI;
-                    const endAngle = startAngle + sweepAngle;
-
-                    // Store segment info for hover detection
-                    ringSegments.push({{
-                        day: day,
-                        value: value,
-                        percentage: ((value / total) * 100).toFixed(1),
-                        startAngle: startAngle,
-                        endAngle: endAngle,
-                        color: colors[i]
-                    }});
-
-                    // Draw arc segment
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-                    ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-                    ctx.closePath();
-
-                    // Gradient fill
-                    const gradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
-                    gradient.addColorStop(0, colors[i] + '80');
-                    gradient.addColorStop(1, colors[i]);
-                    ctx.fillStyle = gradient;
-                    ctx.fill();
-
-                    // Glow effect
-                    ctx.shadowColor = colors[i];
-                    ctx.shadowBlur = 15;
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-
-                    startAngle = endAngle;
-                }});
-
-                // Build legend
-                ringLegend.innerHTML = days.map((day, i) => `
-                    <div class="ring-legend-item">
-                        <div class="ring-legend-color" style="background: ${{colors[i]}};"></div>
-                        <span class="ring-legend-label">${{day.slice(0, 3)}}</span>
-                        <span class="ring-legend-value">${{values[i]}}</span>
-                    </div>
-                `).join('');
+            // Animation loop
+            function animate() {{
+                requestAnimationFrame(animate);
+                if (controls) controls.update();
+                renderer.render(scene, camera);
             }}
-
-            // Ring hover detection
-            ringCanvas.addEventListener('mousemove', (e) => {{
-                const rect = ringCanvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                const centerX = 140;
-                const centerY = 140;
-                const dx = x - centerX;
-                const dy = y - centerY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                // Check if within ring area (between inner and outer radius)
-                if (distance >= 85 && distance <= 130) {{
-                    let angle = Math.atan2(dy, dx);
-                    // Adjust angle to match our starting point (top = -PI/2)
-                    // atan2 returns -PI to PI, we need to map it
-
-                    const segment = ringSegments.find(seg => {{
-                        // Normalize angles for comparison
-                        let a = angle;
-                        let start = seg.startAngle;
-                        let end = seg.endAngle;
-
-                        // Handle wrap-around
-                        if (end < start) end += 2 * Math.PI;
-                        if (a < start) a += 2 * Math.PI;
-
-                        return a >= start && a < end;
-                    }});
-
-                    if (segment) {{
-                        ringTooltip.innerHTML = `
-                            <div class="ring-tooltip-day" style="color: ${{segment.color}}">${{segment.day}}</div>
-                            <div class="ring-tooltip-stats">
-                                <span>${{segment.value}} sessions</span>
-                                <span>${{segment.percentage}}% of week</span>
-                            </div>
-                        `;
-                        ringTooltip.style.left = (e.pageX + 15) + 'px';
-                        ringTooltip.style.top = (e.pageY - 10) + 'px';
-                        ringTooltip.classList.add('visible');
-                        return;
-                    }}
-                }}
-
-                ringTooltip.classList.remove('visible');
-            }});
-
-            ringCanvas.addEventListener('mouseleave', () => {{
-                ringTooltip.classList.remove('visible');
-            }});
 
             // Button handlers
             document.querySelectorAll('.heatmap-btn').forEach(btn => {{
                 btn.addEventListener('click', () => {{
-                    document.querySelectorAll('.heatmap-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.heatmap-btn').forEach(b => {{
+                        b.classList.remove('active');
+                        b.setAttribute('aria-pressed', 'false');
+                    }});
                     btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
                     currentMetric = btn.dataset.metric;
                     buildSkyline(currentMetric);
                 }});
             }});
 
-            // Initial render with delay for dramatic effect
+            // Initialize and start
             setTimeout(() => {{
+                initScene();
                 buildSkyline('sessions');
-                drawActivityRing();
+                animate();
             }}, 2600);
         }})();
     </script>
@@ -2765,15 +2842,37 @@ def generate_frameworks_html(data: dict) -> str:
 
     # Framework icons
     framework_icons = {
+        # AI/LLM Frameworks
         'claude-flow': '🌊', 'sparc': '⚡', 'agentic-engineering': '🤖',
         'coscientist': '🔬', 'mcp': '🔌', 'langchain': '🔗', 'crewai': '👥',
+        'autogen': '🤖', 'llamaindex': '🦙',
+        # Web Frameworks
         'nextjs': '▲', 'react': '⚛️', 'vue': '💚', 'svelte': '🔥',
-        'fastapi': '⚡', 'express': '🚂', 'flask': '🧪', 'django': '🎸',
-        'cloudflare': '☁️', 'vercel': '▲', 'aws': '☁️', 'gcp': '☁️',
+        'fastapi': '⚡', 'express': '🚂', 'flask': '🧪', 'django': '🎸', 'hono': '🔥',
+        # Cloud Providers
+        'cloudflare': '☁️', 'vercel': '▲', 'aws': '🟠', 'gcp': '🔵', 'azure': '🔷',
+        'bigquery': '📊', 'terraform': '🏗️',
+        # Databases & Vector Stores
         'docker': '🐳', 'kubernetes': '☸️', 'postgresql': '🐘',
         'supabase': '⚡', 'mongodb': '🍃', 'redis': '🔴', 'prisma': '◭',
-        'anthropic': '🤖', 'openai': '🤖', 'pytorch': '🔥', 'tensorflow': '🧠',
+        'elasticsearch': '🔍', 'pinecone': '🌲', 'weaviate': '🕸️',
+        'qdrant': '📍', 'chromadb': '🎨', 'neo4j': '🔵',
+        # External APIs & Data Sources
+        'pubmed': '📚', 'arxiv': '📄', 'semantic-scholar': '🎓',
+        'openalex': '📖', 'wikipedia': '📗',
+        'twitter-api': '🐦', 'github-api': '🐙', 'notion-api': '📝',
+        'slack-api': '💬', 'discord-api': '🎮',
+        # AI/ML
+        'anthropic': '🤖', 'openai': '🤖', 'huggingface': '🤗',
+        'pytorch': '🔥', 'tensorflow': '🧠',
+        # Build Tools
         'tailwindcss': '💨', 'typescript': '💙', 'vite': '⚡', 'bun': '🍞',
+        'webpack': '📦', 'turborepo': '🚀', 'pnpm': '📦',
+        # Testing
+        'jest': '🃏', 'vitest': '⚡', 'pytest': '🧪', 'playwright': '🎭', 'cypress': '🌲',
+        # Other
+        'graphql': '◈', 'websocket': '🔌', 'stripe': '💳',
+        'auth0': '🔐', 'clerk': '👤', 'zod': '✅',
     }
 
     if top_frameworks:

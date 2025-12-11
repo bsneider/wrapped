@@ -99,11 +99,21 @@ FRAMEWORK_KEYWORDS = {
     ],
     'aws': [
         'aws', 'amazon web services', 's3', 'lambda', 'ec2', 'dynamodb',
-        'cloudformation', 'cdk', 'boto3', 'aws-sdk',
+        'cloudformation', 'cdk', 'boto3', 'aws-sdk', 'sagemaker', 'bedrock',
+        'aws bedrock', 'elasticache', 'rds', 'aurora', 'athena', 'glue',
     ],
     'gcp': [
-        'google cloud', 'gcp', 'bigquery', 'cloud run', 'cloud functions',
-        'firestore', 'gcloud',
+        'google cloud', 'gcp', 'cloud run', 'cloud functions',
+        'firestore', 'gcloud', 'vertex ai', 'cloud storage', 'pubsub',
+        'cloud sql', 'app engine', 'dataflow', 'dataproc',
+    ],
+    'bigquery': [
+        'bigquery', 'big query', 'bq ', 'google-cloud-bigquery',
+        'from google.cloud import bigquery', 'bigquery.client', 'bq query',
+    ],
+    'azure': [
+        'azure', 'microsoft azure', 'azure functions', 'azure blob',
+        'cosmos db', 'azure ai', 'azure openai', 'azure devops',
     ],
     'docker': [
         'docker', 'dockerfile', 'docker-compose', 'container',
@@ -112,6 +122,10 @@ FRAMEWORK_KEYWORDS = {
     'kubernetes': [
         'kubernetes', 'k8s', 'kubectl', 'helm', 'deployment.yaml',
         'pod', 'service.yaml',
+    ],
+    'terraform': [
+        'terraform', 'tf.', '.tf', 'terraform plan', 'terraform apply',
+        'terraform.tfstate', 'hcl',
     ],
 
     # Databases
@@ -135,6 +149,57 @@ FRAMEWORK_KEYWORDS = {
     ],
     'drizzle': [
         'drizzle', 'drizzle-orm', 'drizzle-kit',
+    ],
+    'elasticsearch': [
+        'elasticsearch', 'elastic', 'es.', 'kibana', 'opensearch',
+    ],
+    'pinecone': [
+        'pinecone', 'pinecone-client', 'pinecone.init',
+    ],
+    'weaviate': [
+        'weaviate', 'weaviate-client',
+    ],
+    'qdrant': [
+        'qdrant', 'qdrant-client', 'qdrant_client',
+    ],
+    'chromadb': [
+        'chromadb', 'chroma', 'chromadb.client',
+    ],
+    'neo4j': [
+        'neo4j', 'cypher', 'neo4j-driver', 'py2neo',
+    ],
+
+    # External Data Sources & APIs
+    'pubmed': [
+        'pubmed', 'ncbi', 'entrez', 'biopython', 'pubmed api',
+        'medline', 'pubmed central', 'pmid', 'pmcid',
+    ],
+    'arxiv': [
+        'arxiv', 'arxiv api', 'arxiv.org', 'preprint',
+    ],
+    'semantic-scholar': [
+        'semantic scholar', 'semanticscholar', 's2_', 'paper api',
+    ],
+    'openalex': [
+        'openalex', 'open alex',
+    ],
+    'wikipedia': [
+        'wikipedia', 'wikimedia', 'wikidata', 'mediawiki',
+    ],
+    'twitter-api': [
+        'twitter api', 'tweepy', 'twitter-api-v2', 'x api',
+    ],
+    'github-api': [
+        'github api', 'octokit', 'pygithub', 'gh api',
+    ],
+    'notion-api': [
+        'notion api', '@notionhq', 'notion-client', 'notion.so',
+    ],
+    'slack-api': [
+        'slack api', 'slack-bolt', '@slack/bolt', 'slack webhook',
+    ],
+    'discord-api': [
+        'discord.py', 'discord.js', 'discord api', 'discord bot',
     ],
 
     # AI/ML Tools
@@ -400,14 +465,16 @@ TECH_PATTERNS = {
 
 # Project category patterns
 CATEGORY_PATTERNS = {
-    'ai-agent': ['agent', 'agentic', 'autonomous', 'multi-agent'],
-    'scientific': ['coscientist', 'research', 'hypothesis', 'experiment', 'scientific'],
+    'ai-agent': ['agent', 'agentic', 'autonomous', 'multi-agent', 'swarm'],
+    'scientific': ['coscientist', 'research', 'hypothesis', 'experiment', 'scientific', 'pubmed', 'arxiv'],
+    'data-science': ['bigquery', 'analytics', 'data science', 'pandas', 'numpy', 'jupyter', 'datascience'],
     'web-app': ['frontend', 'backend', 'fullstack', 'web app', 'dashboard'],
     'cli-tool': ['cli', 'command line', 'terminal'],
     'api': ['api', 'rest', 'graphql', 'endpoint'],
     'mobile': ['mobile', 'ios', 'android', 'react native', 'flutter'],
-    'infrastructure': ['infra', 'devops', 'deploy', 'ci/cd', 'kubernetes'],
-    'data': ['data', 'etl', 'pipeline', 'analytics', 'visualization'],
+    'infrastructure': ['infra', 'devops', 'deploy', 'ci/cd', 'kubernetes', 'terraform'],
+    'data': ['data', 'etl', 'pipeline', 'analytics', 'visualization', 'ingestion'],
+    'ml': ['machine learning', 'ml', 'neural', 'training', 'inference', 'model'],
 }
 
 
@@ -588,13 +655,33 @@ def generate_project_summary(
 
     # Domain keywords from frameworks
     domain_hints = {
+        # AI/LLM
         'coscientist': 'scientific research',
         'langchain': 'LLM orchestration',
         'anthropic': 'Claude AI integration',
         'openai': 'GPT integration',
+        'huggingface': 'ML models',
+        'crewai': 'agent teams',
+        'autogen': 'conversational AI',
+        # Cloud & Data
         'cloudflare': 'edge computing',
+        'bigquery': 'data analytics',
+        'aws': 'cloud infrastructure',
+        'gcp': 'cloud services',
+        'azure': 'cloud platform',
         'supabase': 'data management',
         'postgresql': 'data storage',
+        'elasticsearch': 'search',
+        'pinecone': 'vector search',
+        'chromadb': 'embeddings',
+        'neo4j': 'graph database',
+        # External Data Sources
+        'pubmed': 'biomedical research',
+        'arxiv': 'research papers',
+        'semantic-scholar': 'academic literature',
+        'wikipedia': 'knowledge base',
+        'github-api': 'code repositories',
+        # Web
         'react-native': 'cross-platform mobile',
         'nextjs': 'web application',
         'fastapi': 'API services',
@@ -605,12 +692,14 @@ def generate_project_summary(
     category_purposes = {
         'ai-agent': 'AI agent orchestration',
         'scientific': 'scientific workflows',
+        'data-science': 'data science & analytics',
         'web-app': 'web application',
         'cli-tool': 'command-line tasks',
         'api': 'API services',
         'mobile': 'mobile experience',
         'infrastructure': 'infrastructure management',
         'data': 'data processing',
+        'ml': 'machine learning',
     }
 
     summary_parts = []
