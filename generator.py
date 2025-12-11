@@ -2365,14 +2365,29 @@ def generate_html(data: dict) -> str:
                     bar.dataset.date = dateStr;
                     bar.dataset.value = value;
 
+                    // Add 3D elements for depth effect
+                    const sideDiv = document.createElement('div');
+                    sideDiv.className = 'bar-side';
+                    bar.appendChild(sideDiv);
+
+                    const topDiv = document.createElement('div');
+                    topDiv.className = 'bar-top';
+                    bar.appendChild(topDiv);
+
                     // Add data label for hover
+                    let labelText;
                     if (metric === 'sessions') {{
-                        bar.dataset.label = value;
+                        labelText = value;
                     }} else if (metric === 'tokens') {{
-                        bar.dataset.label = value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : value >= 1000 ? (value/1000).toFixed(0) + 'K' : value;
+                        labelText = value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : value >= 1000 ? (value/1000).toFixed(0) + 'K' : value;
                     }} else {{
-                        bar.dataset.label = '$' + value.toFixed(2);
+                        labelText = '$' + value.toFixed(2);
                     }}
+
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'bar-label';
+                    labelDiv.textContent = labelText;
+                    bar.appendChild(labelDiv);
 
                     bar.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
                     bar.addEventListener('mouseleave', hideTooltip);

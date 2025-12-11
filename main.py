@@ -114,7 +114,7 @@ Easter Eggs:
     # Analyze the directory
     data = analyze_claude_directory(claude_dir)
     json_data = to_json_serializable(data)
-    
+
     if not args.quiet:
         print(f"✅ Found {data.total_sessions} sessions, {data.total_messages} messages", file=sys.stderr)
         print(f"💰 Total cost: ${data.total_cost_usd:.2f}", file=sys.stderr)
@@ -123,6 +123,76 @@ Easter Eggs:
             print(f"🎭 Personality: {data.developer_personality}", file=sys.stderr)
         if data.coding_city:
             print(f"🏙️ Coding City: {data.coding_city}", file=sys.stderr)
+
+    # Run project analysis for frameworks, components, and summaries
+    try:
+        from project_analyzer import analyze_all_projects, group_projects_smart
+        from collections import defaultdict
+
+        if not args.quiet:
+            print("🔬 Analyzing projects for frameworks and technologies...", file=sys.stderr)
+
+        # Get project base paths from common locations
+        project_base_paths = [
+            str(Path.home() / 'sundai'),
+            str(Path.home() / 'projects'),
+            str(Path.home() / 'repos'),
+            str(Path.home() / 'code'),
+        ]
+
+        analyses = analyze_all_projects(
+            json_data.get('top_projects', []),
+            claude_dir,
+            project_base_paths
+        )
+
+        # Add framework detection results
+        framework_counts = defaultdict(int)
+        concept_counts = defaultdict(int)
+        for analysis in analyses:
+            for fw, count in analysis.keyword_matches.items():
+                framework_counts[fw] += count
+            for concept, count in analysis.concept_matches.items():
+                concept_counts[concept] += count
+
+        json_data['detected_frameworks'] = dict(framework_counts)
+        json_data['top_frameworks'] = sorted(framework_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+        json_data['top_coding_concepts'] = sorted(concept_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+
+        # Smart project groupings
+        smart_groups = group_projects_smart(analyses)
+        json_data['smart_project_groups'] = smart_groups
+
+        # Add per-project tech info (frameworks, components, summary)
+        project_tech_map = {}
+        for analysis in analyses:
+            project_tech_map[analysis.name] = {
+                'frameworks': list(analysis.keyword_matches.keys()),
+                'category': analysis.category,
+                'coding_concepts': list(analysis.concept_matches.keys()),
+                'components': list(analysis.component_matches.keys()),
+                'summary': analysis.summary,
+            }
+
+        # Update top_projects with tech info
+        for proj in json_data.get('top_projects', []):
+            name = proj.get('name', '')
+            tech_info = project_tech_map.get(name, {})
+            proj['frameworks'] = tech_info.get('frameworks', [])
+            proj['category'] = tech_info.get('category', '')
+            proj['coding_concepts'] = tech_info.get('coding_concepts', [])
+            proj['components'] = tech_info.get('components', [])
+            proj['summary'] = tech_info.get('summary', '')
+
+        if not args.quiet:
+            print(f"✅ Found {len(framework_counts)} frameworks, {len(smart_groups)} project groups", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  project_analyzer.py not found, skipping project analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Project analysis failed: {e}", file=sys.stderr)
     
     # Generate output
     if args.json:
