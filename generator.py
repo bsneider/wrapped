@@ -1031,7 +1031,7 @@ def generate_html(data: dict) -> str:
         <footer class="footer">
             <p>Generated with 💜 by Claude Wrapped</p>
             <p style="margin-top: 0.5rem; font-size: 0.8rem;">
-                <em>Tip: Try the Konami code for God Mode</em>
+                <em>Tip: Konami code (↑↑↓↓←→←→BA) or tap the title 7x for God Mode</em>
             </p>
         </footer>
     </div>
@@ -1052,7 +1052,7 @@ def generate_html(data: dict) -> str:
             document.getElementById('loading').classList.add('hidden');
         }}, 2500);
         
-        // Konami code easter egg
+        // Konami code easter egg (keyboard)
         const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
         let konamiIndex = 0;
         
@@ -1067,6 +1067,35 @@ def generate_html(data: dict) -> str:
                 konamiIndex = 0;
             }}
         }});
+        
+        // Mobile easter egg: tap the title 7 times quickly to unlock God Mode
+        let tapCount = 0;
+        let tapTimer = null;
+        const heroTitle = document.querySelector('.hero h1');
+        
+        if (heroTitle) {{
+            heroTitle.style.cursor = 'pointer';
+            heroTitle.addEventListener('click', () => {{
+                tapCount++;
+                
+                // Reset tap count after 2 seconds of no taps
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => {{
+                    tapCount = 0;
+                }}, 2000);
+                
+                // 7 taps unlocks God Mode
+                if (tapCount >= 7) {{
+                    document.getElementById('godMode').classList.add('active');
+                    tapCount = 0;
+                    // Add a little feedback
+                    heroTitle.style.transform = 'scale(1.1)';
+                    setTimeout(() => {{
+                        heroTitle.style.transform = 'scale(1)';
+                    }}, 200);
+                }}
+            }});
+        }}
         
         // Charts
         const neonPink = '#ff006e';
