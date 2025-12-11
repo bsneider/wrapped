@@ -504,9 +504,219 @@ FRAMEWORK_KEYWORDS = {
         'pubmed', 'ncbi', 'entrez', 'biopython', 'pubmed api',
         'medline', 'pubmed central', 'pmid', 'pmcid',
     ],
+
+    # -------------------------------------------------------------------------
+    # PREPRINT SERVERS / XIVs - Comprehensive list of academic preprint archives
+    # -------------------------------------------------------------------------
+    # Major General-Purpose
     'arxiv': [
-        'arxiv', 'arxiv api', 'arxiv.org', 'preprint',
+        'arxiv', 'arxiv api', 'arxiv.org', 'arxiv.abs', 'arxiv id',
     ],
+    'osf-preprints': [
+        'osf preprints', 'osf.io/preprints', 'open science framework',
+    ],
+    'preprints-org': [
+        'preprints.org', 'mdpi preprints',
+    ],
+    'zenodo': [
+        'zenodo', 'zenodo.org', 'zenodo api',
+    ],
+    'figshare': [
+        'figshare', 'figshare.com',
+    ],
+    'ssrn': [
+        'ssrn', 'social science research network', 'ssrn.com',
+    ],
+    'research-square': [
+        'research square', 'researchsquare.com',
+    ],
+
+    # Life Sciences / Biology / Medicine
+    'biorxiv': [
+        'biorxiv', 'bioRxiv', 'biorxiv.org', 'bio-rxiv', 'bio rxiv',
+    ],
+    'medrxiv': [
+        'medrxiv', 'medRxiv', 'medrxiv.org', 'med-rxiv', 'med rxiv',
+    ],
+    'chemrxiv': [
+        'chemrxiv', 'chemRxiv', 'chemrxiv.org', 'chem-rxiv', 'chem rxiv',
+    ],
+    'agrirxiv': [
+        'agrirxiv', 'agriRxiv', 'agrirxiv.org', 'agri-rxiv', 'agrixiv',
+    ],
+    'nutrixiv': [
+        'nutrixiv', 'nutriXiv', 'nutri-rxiv',
+    ],
+    'paleorxiv': [
+        'paleorxiv', 'paleorXiv', 'paleorxiv.org', 'paleo-rxiv',
+    ],
+    'ecoevorxiv': [
+        'ecoevorxiv', 'ecoEvoRxiv', 'ecology evolution rxiv',
+    ],
+    'biohackrxiv': [
+        'biohackrxiv', 'bioHackrXiv', 'biohackathon',
+    ],
+    'mitofitpreprints': [
+        'mitofit', 'mitofit preprints',
+    ],
+
+    # Earth & Environmental Sciences
+    'eartharxiv': [
+        'eartharxiv', 'EarthArXiv', 'eartharxiv.org', 'earth-arxiv',
+    ],
+    'essoar': [
+        'essoar', 'ESSOAr', 'earth space science open archive',
+    ],
+    'marxiv': [
+        'marxiv', 'MarXiv', 'marine arxiv', 'ocean science preprint',
+    ],
+
+    # Physics / Math / Computer Science (covered by arxiv above)
+    'vixra': [
+        'vixra', 'viXra', 'vixra.org',
+    ],
+
+    # Engineering & Technology
+    'techrxiv': [
+        'techrxiv', 'TechRxiv', 'techrxiv.org', 'tech-rxiv', 'ieee preprint',
+    ],
+    'engrxiv': [
+        'engrxiv', 'engrXiv', 'engrxiv.org', 'engr-xiv', 'engineering arxiv',
+    ],
+    'ecsarxiv': [
+        'ecsarxiv', 'ECSarXiv', 'electrochemistry preprint',
+    ],
+
+    # Social Sciences & Humanities
+    'socarxiv': [
+        'socarxiv', 'SocArXiv', 'socarxiv.org', 'soc-arxiv', 'social science arxiv',
+    ],
+    'psyarxiv': [
+        'psyarxiv', 'PsyArXiv', 'psyarxiv.org', 'psy-arxiv', 'psychology arxiv',
+    ],
+    'edarxiv': [
+        'edarxiv', 'EdArXiv', 'edarxiv.org', 'ed-arxiv', 'education arxiv',
+    ],
+    'lawarxiv': [
+        'lawarxiv', 'LawArXiv', 'lawarxiv.org', 'law-arxiv', 'legal preprint',
+    ],
+    'metaarxiv': [
+        'metaarxiv', 'MetaArXiv', 'metaarxiv.org', 'meta-arxiv', 'meta research',
+    ],
+    'mindrxiv': [
+        'mindrxiv', 'MindRxiv', 'mind-rxiv', 'contemplative science',
+    ],
+    'mediarxiv': [
+        'mediarxiv', 'MediArXiv', 'media studies preprint', 'film studies preprint',
+    ],
+    'sportrxiv': [
+        'sportrxiv', 'SportRxiv', 'sportrχiv', 'sport-rxiv', 'sports science preprint',
+    ],
+    'philarchive': [
+        'philarchive', 'PhilArchive', 'philosophy archive',
+    ],
+    'philsci-archive': [
+        'philsci archive', 'philsci-archive', 'philosophy of science archive',
+    ],
+    'apsa-preprints': [
+        'apsa preprints', 'political science preprint',
+    ],
+    'bodoarxiv': [
+        'bodoarxiv', 'BodoArXiv', 'medieval studies preprint',
+    ],
+    'lissa': [
+        'lissa', 'lis scholarship archive', 'library science preprint',
+    ],
+
+    # Regional / Language-Specific
+    'africarxiv': [
+        'africarxiv', 'AfricArXiv', 'africarxiv.org', 'africa-rxiv', 'african research',
+    ],
+    'indiarxiv': [
+        'indiarxiv', 'IndiaRxiv', 'indiarxiv.org', 'india-rxiv', 'indian research',
+    ],
+    'arabixiv': [
+        'arabixiv', 'Arabixiv', 'arabixiv.org', 'arabic preprint',
+    ],
+    'frenxiv': [
+        'frenxiv', 'Frenxiv', 'french preprint',
+    ],
+    'inarxiv': [
+        'inarxiv', 'INA-Rxiv', 'indonesia preprint', 'indonesian research',
+    ],
+    'jxiv': [
+        'jxiv', 'Jxiv', 'japanese preprint',
+    ],
+    'scielo-preprints': [
+        'scielo preprints', 'scielo', 'latin america preprint',
+    ],
+    'preprints-ru': [
+        'preprints.ru', 'russian preprint',
+    ],
+
+    # Multidisciplinary Platforms
+    'f1000research': [
+        'f1000research', 'f1000 research', 'faculty opinions',
+    ],
+    'wellcome-open': [
+        'wellcome open research', 'wellcome open',
+    ],
+    'gates-open': [
+        'gates open research', 'gates foundation',
+    ],
+    'authorea': [
+        'authorea', 'authorea.com',
+    ],
+    'peerj-preprints': [
+        'peerj preprints', 'peerj.com/preprints',
+    ],
+    'researchgate': [
+        'researchgate', 'researchgate.net',
+    ],
+    'academia-edu': [
+        'academia.edu', 'academia preprint',
+    ],
+
+    # Specialized Archives
+    'cryptology-eprint': [
+        'cryptology eprint', 'iacr eprint', 'eprint.iacr.org', 'crypto preprint',
+    ],
+    'repec': [
+        'repec', 'research papers in economics', 'ideas.repec.org',
+    ],
+    'econstor': [
+        'econstor', 'zbw', 'economics preprint',
+    ],
+    'thesis-commons': [
+        'thesis commons', 'thesiscommons',
+    ],
+    'focus-archive': [
+        'focus archive', 'focusarchive',
+    ],
+    'alphaxiv': [
+        'alphaxiv', 'alphaXiv', 'alphaxiv.org',
+    ],
+
+    # Publisher Preprint Platforms
+    'lancet-preprints': [
+        'preprints with the lancet', 'lancet preprint', 'ssrn lancet',
+    ],
+    'cambridge-engage': [
+        'cambridge open engage', 'cambridge engage',
+    ],
+    'sage-advance': [
+        'sage advance', 'advance sage preprints',
+    ],
+    'jmir-preprints': [
+        'jmir preprints', 'jmir.org/preprints',
+    ],
+    'beilstein-archives': [
+        'beilstein archives', 'beilstein preprint',
+    ],
+    'arpha-preprints': [
+        'arpha preprints', 'pensoft preprint',
+    ],
+
     'semantic-scholar': [
         'semantic scholar', 'semanticscholar', 's2_', 'paper api',
     ],
@@ -1173,8 +1383,40 @@ FRAMEWORK_ICONS = {
     'elasticsearch': '🔍', 'algolia': '🔎', 'meilisearch': '🔍', 'typesense': '🔤',
 
     # External APIs & Data Sources
-    'pubmed': '📚', 'arxiv': '📄', 'semantic-scholar': '🎓',
+    'pubmed': '📚', 'semantic-scholar': '🎓',
     'openalex': '📖', 'crossref': '🔗', 'wikipedia': '📗',
+
+    # Preprint Servers / XIVs
+    # Major General-Purpose
+    'arxiv': '📄', 'osf-preprints': '🔬', 'preprints-org': '📝',
+    'zenodo': '🗃️', 'figshare': '📊', 'ssrn': '📑', 'research-square': '🔲',
+    # Life Sciences / Biology / Medicine
+    'biorxiv': '🧬', 'medrxiv': '🏥', 'chemrxiv': '⚗️', 'agrirxiv': '🌾',
+    'nutrixiv': '🥗', 'paleorxiv': '🦴', 'ecoevorxiv': '🌿', 'biohackrxiv': '💻',
+    'mitofitpreprints': '🔋',
+    # Earth & Environmental Sciences
+    'eartharxiv': '🌍', 'essoar': '🌌', 'marxiv': '🌊',
+    # Physics / Alt
+    'vixra': '📐',
+    # Engineering & Technology
+    'techrxiv': '⚙️', 'engrxiv': '🔧', 'ecsarxiv': '🔌',
+    # Social Sciences & Humanities
+    'socarxiv': '👥', 'psyarxiv': '🧠', 'edarxiv': '🎓', 'lawarxiv': '⚖️',
+    'metaarxiv': '🔍', 'mindrxiv': '🧘', 'mediarxiv': '🎬', 'sportrxiv': '🏃',
+    'philarchive': '📜', 'philsci-archive': '🔭', 'apsa-preprints': '🏛️',
+    'bodoarxiv': '🏰', 'lissa': '📚',
+    # Regional / Language-Specific
+    'africarxiv': '🌍', 'indiarxiv': '🇮🇳', 'arabixiv': '🌙', 'frenxiv': '🇫🇷',
+    'inarxiv': '🇮🇩', 'jxiv': '🇯🇵', 'scielo-preprints': '🌎', 'preprints-ru': '🇷🇺',
+    # Multidisciplinary Platforms
+    'f1000research': '🔬', 'wellcome-open': '💚', 'gates-open': '🌐',
+    'authorea': '✍️', 'peerj-preprints': '👁️', 'researchgate': '🔗', 'academia-edu': '🎓',
+    # Specialized Archives
+    'cryptology-eprint': '🔐', 'repec': '💹', 'econstor': '📈',
+    'thesis-commons': '📖', 'focus-archive': '🎯', 'alphaxiv': '🔤',
+    # Publisher Preprint Platforms
+    'lancet-preprints': '🩺', 'cambridge-engage': '📕', 'sage-advance': '📗',
+    'jmir-preprints': '💻', 'beilstein-archives': '🧪', 'arpha-preprints': '🦎',
     'twitter-api': '🐦', 'github-api': '🐙', 'notion-api': '📝',
     'slack-api': '💬', 'discord-api': '🎮',
     'stripe': '💳', 'twilio': '📱', 'sendgrid': '📧', 'resend': '📤',
@@ -1327,10 +1569,21 @@ DOMAIN_HINTS = {
 
     # External Data Sources
     'pubmed': 'biomedical research',
-    'arxiv': 'research papers',
+    'arxiv': 'physics/CS preprints',
     'semantic-scholar': 'academic literature',
     'wikipedia': 'knowledge base',
     'github-api': 'code repositories',
+
+    # Preprint Servers
+    'biorxiv': 'biology preprints',
+    'medrxiv': 'health sciences preprints',
+    'chemrxiv': 'chemistry preprints',
+    'eartharxiv': 'earth science preprints',
+    'socarxiv': 'social science preprints',
+    'psyarxiv': 'psychology preprints',
+    'techrxiv': 'engineering preprints',
+    'ssrn': 'social science/economics',
+    'zenodo': 'open research data',
 
     # Web
     'react-native': 'cross-platform mobile',

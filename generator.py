@@ -1836,27 +1836,27 @@ def generate_html(data: dict) -> str:
         
         <!-- Quick Stats -->
         <section class="stats-grid">
-            <div class="stat-card">
+            <div class="stat-card" title="Total Claude Code sessions started. Each session is a separate conversation with Claude.">
                 <div class="stat-value">{sessions_formatted}</div>
                 <div class="stat-label">Sessions</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="Total messages exchanged between you and Claude across all sessions.">
                 <div class="stat-value">{messages_formatted}</div>
                 <div class="stat-label">Messages</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="Total tokens processed (input + output). Tokens are how AI models measure text - roughly 4 characters or 0.75 words per token.">
                 <div class="stat-value">{tokens_formatted}</div>
                 <div class="stat-label">Tokens</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="Unique project directories where you used Claude Code.">
                 <div class="stat-value">{data.get('unique_projects', 0)}</div>
                 <div class="stat-label">Projects</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="Duration of your longest continuous coding session with Claude.">
                 <div class="stat-value">{longest_session}</div>
                 <div class="stat-label">Longest Session</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="Maximum number of consecutive days you used Claude Code.">
                 <div class="stat-value">{longest_streak}</div>
                 <div class="stat-label">Day Streak</div>
             </div>
@@ -1873,25 +1873,25 @@ def generate_html(data: dict) -> str:
         <section class="verdict-section" aria-label="Your coding verdicts and statistics">
             <div class="verdict-grid" role="list">
                 <!-- Yapping Index -->
-                <article class="verdict-card pink" role="listitem" aria-labelledby="yapping-title">
+                <article class="verdict-card pink" role="listitem" aria-labelledby="yapping-title" title="The Yapping Index measures how much you write compared to Claude. Higher ratio = you're writing more than Claude responds.">
                     <div class="verdict-icon" aria-hidden="true">🗣️</div>
                     <div class="verdict-subtitle">The Yapping Index</div>
                     <div class="verdict-title" id="yapping-title">{yapping_title}</div>
                     <div class="verdict-desc">{yapping_desc}</div>
-                    <div class="verdict-stat" title="Ratio of your tokens to Claude's tokens">{data.get('user_to_assistant_token_ratio', 0):.2f}x ratio</div>
+                    <div class="verdict-stat" title="Ratio of your tokens to Claude's tokens. 1.0x = equal, >1 = you write more, <1 = Claude writes more">{data.get('user_to_assistant_token_ratio', 0):.2f}x ratio</div>
                 </article>
 
                 <!-- Cache Efficiency -->
-                <article class="verdict-card cyan" role="listitem" aria-labelledby="cache-title" title="Cache efficiency measures how often Claude reuses context from previous turns instead of re-processing everything. Higher = cheaper API calls.">
+                <article class="verdict-card cyan" role="listitem" aria-labelledby="cache-title" title="Context Reuse measures how often Claude reuses cached context from previous turns. Higher % = cheaper API calls because tokens don't need to be re-processed.">
                     <div class="verdict-icon" aria-hidden="true">💾</div>
                     <div class="verdict-subtitle">Context Reuse</div>
                     <div class="verdict-title" id="cache-title">{cache_title}</div>
                     <div class="verdict-desc">{cache_desc}</div>
-                    <div class="verdict-stat">{data.get('cache_efficiency_ratio', 0)*100:.1f}% cached</div>
+                    <div class="verdict-stat" title="Percentage of input tokens that were served from cache instead of being fully processed">{data.get('cache_efficiency_ratio', 0)*100:.1f}% cached</div>
                 </article>
 
                 <!-- Bio Rhythm -->
-                <article class="verdict-card purple" role="listitem" aria-labelledby="bio-title">
+                <article class="verdict-card purple" role="listitem" aria-labelledby="bio-title" title="Your coding bio rhythm based on when you're most active with Claude Code.">
                     <div class="verdict-icon" aria-hidden="true">{bio_rhythm_icon}</div>
                     <div class="verdict-subtitle">Bio Rhythm</div>
                     <div class="verdict-title" id="bio-title">{time_title}</div>
@@ -1904,15 +1904,15 @@ def generate_html(data: dict) -> str:
         <section class="verdict-section">
             <div class="verdict-grid">
                 <!-- Developer Personality -->
-                <div class="verdict-card pink" style="grid-column: span 1;">
+                <div class="verdict-card pink" style="grid-column: span 1;" title="Your developer personality is determined by your coding patterns, tool preferences, and interaction style with Claude.">
                     <div class="verdict-icon">🎭</div>
                     <div class="verdict-subtitle">Your Developer Personality</div>
                     <div class="verdict-title">{dev_personality}</div>
                     <div class="verdict-desc">{personality_desc}</div>
                 </div>
-                
+
                 <!-- Coding City -->
-                <div class="verdict-card cyan" style="grid-column: span 1;">
+                <div class="verdict-card cyan" style="grid-column: span 1;" title="Your coding city is matched based on your tech stack, coding style, and the vibe of your projects.">
                     <div class="verdict-icon">🏙️</div>
                     <div class="verdict-subtitle">Your Coding City</div>
                     <div class="verdict-title">{coding_city}</div>
@@ -1936,9 +1936,9 @@ def generate_html(data: dict) -> str:
                 X = Days of Week, Y = Activity, Z = Weeks. Drag to rotate. Scroll to zoom. Click bars for details.
             </p>
             <div class="heatmap-controls" role="group" aria-label="Metric selection">
-                <button class="heatmap-btn active" data-metric="sessions" style="border-color: var(--neon-cyan); color: var(--neon-cyan);" aria-pressed="true">📊 Sessions</button>
-                <button class="heatmap-btn" data-metric="tokens" style="border-color: var(--neon-purple); color: var(--neon-purple);" aria-pressed="false">🔤 Tokens</button>
-                <button class="heatmap-btn" data-metric="cost" style="border-color: var(--neon-pink); color: var(--neon-pink);" aria-pressed="false">💰 Cost</button>
+                <button class="heatmap-btn active" data-metric="sessions" style="border-color: var(--neon-cyan); color: var(--neon-cyan);" aria-pressed="true" title="View by number of Claude Code sessions started each day">📊 Sessions</button>
+                <button class="heatmap-btn" data-metric="tokens" style="border-color: var(--neon-purple); color: var(--neon-purple);" aria-pressed="false" title="View by total tokens (input + output) processed each day">🔤 Tokens</button>
+                <button class="heatmap-btn" data-metric="cost" style="border-color: var(--neon-pink); color: var(--neon-pink);" aria-pressed="false" title="View by estimated API cost in USD each day">💰 Cost</button>
             </div>
             <div class="skyline-wrapper">
                 <div class="skyline-total">
@@ -1949,15 +1949,15 @@ def generate_html(data: dict) -> str:
                 <div id="skyline3DTooltip" class="skyline-3d-tooltip"></div>
             </div>
             <div class="heatmap-stats" id="heatmapStats">
-                <div class="heatmap-stat">
+                <div class="heatmap-stat" title="Total number of unique days you used Claude Code.">
                     <div class="heatmap-stat-value" id="statTotalDays">0</div>
                     <div class="heatmap-stat-label">Active Days</div>
                 </div>
-                <div class="heatmap-stat">
+                <div class="heatmap-stat" title="The day of the week when you're most active with Claude Code.">
                     <div class="heatmap-stat-value" id="statBestDay">-</div>
                     <div class="heatmap-stat-label">Most Productive Day</div>
                 </div>
-                <div class="heatmap-stat">
+                <div class="heatmap-stat" title="The month with the highest activity based on the selected metric.">
                     <div class="heatmap-stat-value" id="statBestMonth">-</div>
                     <div class="heatmap-stat-label">Best Month</div>
                 </div>
@@ -2006,32 +2006,32 @@ def generate_html(data: dict) -> str:
         <section class="chart-section">
             <div class="chart-title"><span>🧠</span> Context Engineering Report</div>
             <div class="context-health">
-                <div class="context-metric">
+                <div class="context-metric" title="Sessions where the context window filled up and Claude had to summarize the conversation to continue.">
                     <div class="context-metric-value">{data.get('sessions_with_compaction', 0)}</div>
                     <div class="context-metric-label">Sessions w/ Compaction</div>
                     <div class="context-metric-detail">{data.get('sessions_with_compaction', 0) / max(data.get('total_sessions', 1), 1) * 100:.1f}% of all sessions</div>
                 </div>
-                <div class="context-metric">
+                <div class="context-metric" title="The highest number of times context was compacted in a single session. More compactions = longer/more complex conversations.">
                     <div class="context-metric-value">{data.get('max_compactions_in_session', 0)}</div>
                     <div class="context-metric-label">Max Compactions</div>
                     <div class="context-metric-detail">Most in a single session</div>
                 </div>
-                <div class="context-metric">
+                <div class="context-metric" title="Sessions with 3+ compactions indicate marathon coding sessions with extensive back-and-forth. These are your deep work sessions.">
                     <div class="context-metric-value">{data.get('multi_compaction_sessions', 0)}</div>
                     <div class="context-metric-label">Deep Dive Sessions</div>
                     <div class="context-metric-detail">3+ compactions (marathon coding)</div>
                 </div>
-                <div class="context-metric">
+                <div class="context-metric" title="Ratio of input tokens to output tokens. High (>5x) = context-heavy reading/exploration. Low (<2x) = output-heavy code generation.">
                     <div class="context-metric-value">{data.get('input_output_ratio', 0):.1f}x</div>
                     <div class="context-metric-label">Input/Output Ratio</div>
                     <div class="context-metric-detail">{'Context-heavy' if data.get('input_output_ratio', 0) > 5 else 'Balanced' if data.get('input_output_ratio', 0) > 2 else 'Output-heavy'} usage</div>
                 </div>
-                <div class="context-metric">
+                <div class="context-metric" title="Average tokens per message. <500 = concise messages, 500-2000 = normal, >2000 = verbose (large code blocks or detailed explanations).">
                     <div class="context-metric-value">{format_number(data.get('avg_tokens_per_message', 0))}</div>
                     <div class="context-metric-label">Avg Tokens/Message</div>
                     <div class="context-metric-detail">{'Verbose' if data.get('avg_tokens_per_message', 0) > 2000 else 'Concise' if data.get('avg_tokens_per_message', 0) < 500 else 'Normal'} messages</div>
                 </div>
-                <div class="context-metric">
+                <div class="context-metric" title="Average tokens consumed before the context window fills and needs to be compacted. Higher = better context management.">
                     <div class="context-metric-value">{int(data.get('tokens_per_compaction', 0) / 1000)}K</div>
                     <div class="context-metric-label">Tokens per Compaction</div>
                     <div class="context-metric-detail">Avg tokens before context reset</div>
@@ -2051,15 +2051,15 @@ def generate_html(data: dict) -> str:
         <section class="chart-section">
             <div class="chart-title"><span>🔥</span> Streaks</div>
             <div class="streak-display">
-                <div class="streak-item">
+                <div class="streak-item" title="Maximum consecutive days you used Claude Code without missing a day.">
                     <div class="streak-value">{longest_streak}</div>
                     <div class="streak-label">Longest Streak (Days)</div>
                 </div>
-                <div class="streak-item">
+                <div class="streak-item" title="How many consecutive days you've been using Claude Code up to today (or your last active day).">
                     <div class="streak-value">{current_streak}</div>
                     <div class="streak-label">Current Streak</div>
                 </div>
-                <div class="streak-item">
+                <div class="streak-item" title="Number of sessions that lasted more than 2 hours. These are your deep work sessions where you really dug in.">
                     <div class="streak-value">{marathons}</div>
                     <div class="streak-label">Marathon Sessions (&gt;2h)</div>
                 </div>
@@ -2785,15 +2785,32 @@ def generate_model_tags(model_items: list) -> str:
     """Generate HTML for model usage tags."""
     if not model_items:
         return '<div class="tool-item"><span class="tool-name">No models tracked</span></div>'
-    
+
+    # Model descriptions for tooltips
+    model_tooltips = {
+        'opus': 'Claude Opus - Most capable model for complex analysis and creative tasks',
+        'sonnet': 'Claude Sonnet - Balanced model for everyday coding tasks',
+        'haiku': 'Claude Haiku - Fastest model for quick edits and simple tasks',
+        '3-5': 'Claude 3.5 - Previous generation model',
+        '4': 'Claude 4 - Latest generation model',
+    }
+
     tags = []
     for model, count in model_items:
         # Clean up model name for display
         display_name = model.replace('claude-', '').replace('-20250', ' (')
         if '(' in display_name:
             display_name += ')'
-        tags.append(f'<div class="tool-item"><span class="tool-name">{html.escape(display_name)}</span><span class="tool-count">{count}</span></div>')
-    
+
+        # Generate tooltip based on model name
+        tooltip = f"Used {count} times"
+        for key, desc in model_tooltips.items():
+            if key in model.lower():
+                tooltip = f"{desc}. Used {count} times."
+                break
+
+        tags.append(f'<div class="tool-item" title="{html.escape(tooltip)}"><span class="tool-name">{html.escape(display_name)}</span><span class="tool-count">{count}</span></div>')
+
     return '\n'.join(tags)
 
 
@@ -2990,12 +3007,46 @@ def generate_frameworks_html(data: dict) -> str:
         'auth0': '🔐', 'clerk': '👤', 'zod': '✅',
     }
 
+    # Framework descriptions for tooltips
+    framework_tooltips = {
+        # AI/LLM
+        'claude-flow': 'Multi-agent orchestration framework', 'sparc': 'Structured Problem Analysis framework',
+        'mcp': 'Model Context Protocol for tool integration', 'langchain': 'LLM application framework',
+        'crewai': 'Multi-agent collaboration framework', 'autogen': 'Multi-agent conversation framework',
+        'llamaindex': 'Data framework for LLM apps', 'langgraph': 'Graph-based agent orchestration',
+        # Web
+        'nextjs': 'React framework for production', 'react': 'UI component library',
+        'vue': 'Progressive JavaScript framework', 'svelte': 'Compiled frontend framework',
+        'fastapi': 'High-performance Python web framework', 'express': 'Node.js web framework',
+        'flask': 'Lightweight Python web framework', 'django': 'Full-stack Python framework',
+        # Cloud
+        'aws': 'Amazon Web Services cloud platform', 'gcp': 'Google Cloud Platform',
+        'azure': 'Microsoft Azure cloud platform', 'cloudflare': 'Edge computing platform',
+        'vercel': 'Frontend deployment platform', 'bigquery': 'Google data warehouse',
+        # Databases
+        'postgresql': 'Open-source relational database', 'supabase': 'Open-source Firebase alternative',
+        'mongodb': 'NoSQL document database', 'redis': 'In-memory data store',
+        'pinecone': 'Vector database for AI', 'chromadb': 'Open-source embeddings database',
+        'neo4j': 'Graph database', 'elasticsearch': 'Search and analytics engine',
+        # External Data
+        'pubmed': 'Biomedical literature database', 'arxiv': 'Physics/CS preprint server',
+        'biorxiv': 'Biology preprint server', 'medrxiv': 'Health sciences preprint server',
+        # AI/ML
+        'anthropic': 'Claude AI API', 'openai': 'GPT API', 'huggingface': 'ML model hub',
+        'pytorch': 'Deep learning framework', 'tensorflow': 'ML platform',
+        # Tools
+        'docker': 'Container platform', 'kubernetes': 'Container orchestration',
+        'terraform': 'Infrastructure as code', 'prisma': 'TypeScript ORM',
+        'vite': 'Frontend build tool', 'tailwindcss': 'Utility-first CSS framework',
+    }
+
     if top_frameworks:
         items = []
         for framework, count in top_frameworks[:10]:
             icon = framework_icons.get(framework, '📦')
+            tooltip = framework_tooltips.get(framework, f'{framework} framework/tool')
             items.append(f'''
-                <div class="framework-tag">
+                <div class="framework-tag" title="{html.escape(tooltip)}. Detected {count} times in your code.">
                     <span class="framework-icon">{icon}</span>
                     <span class="framework-name">{html.escape(framework)}</span>
                     <span class="framework-count">{count}</span>
@@ -3018,12 +3069,37 @@ def generate_frameworks_html(data: dict) -> str:
         'clean-architecture': '🏗️', 'dependency-injection': '💉',
     }
 
+    # Concept descriptions for tooltips
+    concept_tooltips = {
+        'testing': 'Unit, integration, and end-to-end testing practices',
+        'linting': 'Code style and quality enforcement tools',
+        'ci-cd': 'Continuous integration and deployment pipelines',
+        'documentation': 'Code documentation and API specs',
+        'authentication': 'User identity verification (OAuth, JWT, sessions)',
+        'authorization': 'Access control and permissions (RBAC, ACL)',
+        'encryption': 'Data protection and security practices',
+        'caching': 'Performance optimization via data caching',
+        'optimization': 'Code and performance optimization techniques',
+        'async-patterns': 'Asynchronous programming patterns',
+        'microservices': 'Distributed service architecture',
+        'serverless': 'Cloud functions and event-driven compute',
+        'monorepo': 'Single repository for multiple projects',
+        'type-safety': 'Static type checking and type inference',
+        'functional': 'Functional programming patterns',
+        'reactive': 'Reactive programming with observables',
+        'clean-architecture': 'Hexagonal/onion architecture patterns',
+        'dependency-injection': 'Inversion of control patterns',
+        'event-driven': 'Event sourcing and message-driven architecture',
+        'streaming': 'Data streaming and chunked processing',
+    }
+
     if top_concepts:
         items = []
         for concept, count in top_concepts[:8]:
             icon = concept_icons.get(concept, '💡')
+            tooltip = concept_tooltips.get(concept, f'{concept.replace("-", " ").title()} pattern')
             items.append(f'''
-                <div class="concept-tag">
+                <div class="concept-tag" title="{html.escape(tooltip)}. Found {count} times.">
                     <span class="concept-icon">{icon}</span>
                     <span class="concept-name">{html.escape(concept)}</span>
                     <span class="concept-count">{count}</span>
@@ -3054,16 +3130,35 @@ def generate_command_cards(data: dict) -> str:
     top_skills = data.get('top_skills', [])
     top_task_agent_types = data.get('top_task_agent_types', [])
 
+    # Command tooltips
+    cmd_tooltips = {
+        'help': 'Get help with Claude Code commands',
+        'clear': 'Clear the conversation history',
+        'compact': 'Summarize conversation to save context',
+        'init': 'Initialize Claude Code settings in a project',
+        'review': 'Review code changes or pull requests',
+        'bug': 'Report or debug an issue',
+        'config': 'Configure Claude Code settings',
+    }
+
+    # Agent type tooltips
+    agent_type_tooltips = {
+        'Explore': 'Fast codebase exploration agent for searching files and code',
+        'Plan': 'Software architect agent for designing implementation plans',
+        'general-purpose': 'General-purpose agent for complex multi-step tasks',
+        'claude-code-guide': 'Agent that answers questions about Claude Code features',
+    }
+
     sections = []
 
     # Commands section
     if top_commands:
         cmd_items = ''.join([
-            f'<span class="cmd-tag">/{html.escape(cmd)}<span class="cmd-count">{count}</span></span>'
+            f'<span class="cmd-tag" title="{html.escape(cmd_tooltips.get(cmd, "Custom slash command"))}. Used {count} times.">/{html.escape(cmd)}<span class="cmd-count">{count}</span></span>'
             for cmd, count in top_commands[:6]
         ])
         sections.append(f'''
-            <div class="command-card">
+            <div class="command-card" title="Slash commands let you trigger specific Claude Code actions quickly.">
                 <div class="command-card-title">📋 Slash Commands</div>
                 <div class="command-tags">{cmd_items}</div>
             </div>
@@ -3072,11 +3167,11 @@ def generate_command_cards(data: dict) -> str:
     # Agents section
     if top_agents:
         agent_items = ''.join([
-            f'<span class="agent-tag">@{html.escape(agent)}<span class="cmd-count">{count}</span></span>'
+            f'<span class="agent-tag" title="Custom agent that you\'ve called {count} times.">@{html.escape(agent)}<span class="cmd-count">{count}</span></span>'
             for agent, count in top_agents[:6]
         ])
         sections.append(f'''
-            <div class="command-card">
+            <div class="command-card" title="Agents are specialized AI assistants you can invoke with @mentions.">
                 <div class="command-card-title">🤖 Agents Used</div>
                 <div class="command-tags">{agent_items}</div>
             </div>
@@ -3085,11 +3180,11 @@ def generate_command_cards(data: dict) -> str:
     # Task Agent Types section (Explore, Plan, general-purpose, etc.)
     if top_task_agent_types:
         type_items = ''.join([
-            f'<span class="task-type-tag">{html.escape(agent_type)}<span class="cmd-count">{count}</span></span>'
+            f'<span class="task-type-tag" title="{html.escape(agent_type_tooltips.get(agent_type, "Specialized subagent type"))}. Spawned {count} times.">{html.escape(agent_type)}<span class="cmd-count">{count}</span></span>'
             for agent_type, count in top_task_agent_types[:6]
         ])
         sections.append(f'''
-            <div class="command-card">
+            <div class="command-card" title="Task subagents are spawned by Claude to handle specific types of work autonomously.">
                 <div class="command-card-title">🚀 Task Subagents</div>
                 <div class="command-tags">{type_items}</div>
             </div>
@@ -3098,11 +3193,11 @@ def generate_command_cards(data: dict) -> str:
     # Skills section
     if top_skills:
         skill_items = ''.join([
-            f'<span class="skill-tag">{html.escape(skill)}<span class="cmd-count">{count}</span></span>'
+            f'<span class="skill-tag" title="Specialized skill activated {count} times.">{html.escape(skill)}<span class="cmd-count">{count}</span></span>'
             for skill, count in top_skills[:6]
         ])
         sections.append(f'''
-            <div class="command-card">
+            <div class="command-card" title="Skills are specialized capabilities that extend Claude Code's functionality.">
                 <div class="command-card-title">✨ Skills Activated</div>
                 <div class="command-tags">{skill_items}</div>
             </div>
