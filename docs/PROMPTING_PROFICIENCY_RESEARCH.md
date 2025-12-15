@@ -856,6 +856,377 @@ INSIGHT_TEMPLATES = {
 
 ---
 
+## Part 6.5: Signature Prompts & Repeated Patterns
+
+### 6.5.1 Concept: "Your Prompt DNA"
+
+A fun, engaging feature that surfaces the user's most common prompt patterns, phrases, and "catchphrases" - similar to how Spotify Wrapped shows top songs.
+
+**User Value**:
+- Self-awareness of prompting habits
+- Identify patterns that work (or don't)
+- Shareable/entertaining content
+- Basis for personalized system prompts
+
+### 6.5.2 What to Extract
+
+#### A. Opening Phrases (Prompt Starters)
+
+```python
+OPENING_PATTERN_CATEGORIES = {
+    'polite': [
+        'please', 'could you', 'would you mind', 'can you help',
+    ],
+    'direct': [
+        'write', 'create', 'make', 'build', 'generate', 'fix',
+    ],
+    'exploratory': [
+        'how do i', 'what is', 'explain', 'why does', 'help me understand',
+    ],
+    'contextual': [
+        'given', 'considering', 'based on', 'in the context of',
+    ],
+    'imperative': [
+        'do not', 'always', 'never', 'make sure', 'ensure',
+    ],
+}
+
+def extract_opening_patterns(messages):
+    """
+    Extract how users typically start their prompts.
+
+    Returns: {pattern_type: count, top_phrases: [...]}
+    """
+    openings = []
+    for msg in messages:
+        # Get first 10 words
+        opening = ' '.join(msg.split()[:10]).lower()
+        openings.append(opening)
+
+    return cluster_similar_openings(openings)
+```
+
+#### B. Repeated Instructions (Your "House Rules")
+
+```python
+def extract_repeated_instructions(messages, min_occurrences=3):
+    """
+    Find instructions that appear repeatedly across sessions.
+
+    These are the user's implicit "system prompt" preferences.
+
+    Examples:
+    - "use typescript"
+    - "keep it concise"
+    - "no emojis"
+    - "explain your reasoning"
+    - "write tests first"
+    """
+
+    # Extract instruction-like phrases
+    instruction_patterns = [
+        r'always\s+\w+',
+        r'never\s+\w+',
+        r'use\s+\w+',
+        r'don\'t\s+\w+',
+        r'make sure\s+.+',
+        r'keep\s+it\s+\w+',
+        r'be\s+\w+',  # "be concise", "be specific"
+    ]
+
+    instructions = defaultdict(int)
+    for msg in messages:
+        for pattern in instruction_patterns:
+            matches = re.findall(pattern, msg.lower())
+            for match in matches:
+                instructions[match] += 1
+
+    return {k: v for k, v in instructions.items() if v >= min_occurrences}
+```
+
+#### C. Signature Phrases (Your Catchphrases)
+
+```python
+def extract_signature_phrases(messages, n_gram_range=(3, 6)):
+    """
+    Find unique multi-word phrases the user uses repeatedly.
+
+    These become the user's "prompt fingerprint".
+
+    Examples:
+    - "let's think step by step"
+    - "in a single file"
+    - "without any external dependencies"
+    - "optimized for readability"
+    """
+
+    all_ngrams = []
+    for msg in messages:
+        tokens = tokenize(msg)
+        for n in range(n_gram_range[0], n_gram_range[1] + 1):
+            ngrams = extract_ngrams(tokens, n)
+            all_ngrams.extend(ngrams)
+
+    # Count and filter
+    ngram_counts = Counter(all_ngrams)
+
+    # Filter: must appear 3+ times, not generic
+    signature = {
+        phrase: count
+        for phrase, count in ngram_counts.items()
+        if count >= 3 and not is_generic_phrase(phrase)
+    }
+
+    return sorted(signature.items(), key=lambda x: -x[1])[:10]
+```
+
+#### D. Context Patterns (What You Always Mention)
+
+```python
+def extract_context_patterns(messages):
+    """
+    Find what context users consistently provide.
+
+    Examples:
+    - Tech stack mentions: "using React", "in Python 3.11"
+    - Environment: "on macOS", "in production"
+    - Constraints: "under 100 lines", "no dependencies"
+    - Quality: "production-ready", "well-documented"
+    """
+
+    context_categories = {
+        'tech_stack': extract_tech_mentions(messages),
+        'environment': extract_env_mentions(messages),
+        'constraints': extract_constraint_mentions(messages),
+        'quality_requirements': extract_quality_mentions(messages),
+    }
+
+    return context_categories
+```
+
+#### E. Tool Request Patterns
+
+```python
+def extract_tool_patterns(messages):
+    """
+    How does the user typically request tool usage?
+
+    Examples:
+    - "read the file first"
+    - "search for"
+    - "run the tests"
+    - "check if"
+    """
+
+    tool_verbs = [
+        'read', 'write', 'edit', 'search', 'find', 'grep',
+        'run', 'execute', 'test', 'build', 'deploy',
+        'check', 'verify', 'validate', 'lint',
+        'commit', 'push', 'pull', 'merge',
+    ]
+
+    patterns = defaultdict(int)
+    for msg in messages:
+        for verb in tool_verbs:
+            if re.search(rf'\b{verb}\b', msg.lower()):
+                # Extract the full phrase
+                match = re.search(rf'{verb}\s+[\w\s]{{1,20}}', msg.lower())
+                if match:
+                    patterns[match.group()] += 1
+
+    return patterns
+```
+
+### 6.5.3 Analysis & Insights
+
+```python
+@dataclass
+class SignaturePromptsAnalysis:
+    """Data structure for signature prompts feature."""
+
+    # Top repeated elements
+    top_opening_phrase: str = ""           # "How do I..."
+    top_opening_count: int = 0
+    opening_style: str = ""                # "exploratory", "direct", etc.
+
+    # House rules (repeated instructions)
+    house_rules: List[str] = field(default_factory=list)
+    # e.g., ["use typescript", "keep it concise", "no comments"]
+
+    # Signature catchphrases
+    catchphrases: List[Tuple[str, int]] = field(default_factory=list)
+    # e.g., [("let's think step by step", 47), ("in a single file", 23)]
+
+    # Most mentioned tech
+    top_tech_mentions: List[str] = field(default_factory=list)
+    # e.g., ["Python", "React", "PostgreSQL"]
+
+    # Quality preferences
+    quality_keywords: List[str] = field(default_factory=list)
+    # e.g., ["concise", "production-ready", "well-tested"]
+
+    # Unique vocabulary
+    unique_words: List[str] = field(default_factory=list)
+    # Words user uses more than average
+
+    # Prompt length preferences
+    avg_prompt_length: int = 0
+    prompt_length_style: str = ""  # "terse", "detailed", "verbose"
+
+    # Question vs statement ratio
+    question_ratio: float = 0.0
+    communication_style: str = ""  # "inquisitive", "directive"
+```
+
+### 6.5.4 Display: Signature Prompts Section
+
+```
+┌────────────────────────────────────────────────────────┐
+│  YOUR PROMPT DNA                                       │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  "How do I..."                                    │ │
+│  │  Your signature opening (used 234 times)          │ │
+│  │                                                    │ │
+│  │  Style: THE EXPLORER                              │ │
+│  │  You ask questions 73% of the time                │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                        │
+│  YOUR CATCHPHRASES                                    │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  #1  "let's think step by step"      47 times    │ │
+│  │  #2  "without any dependencies"      34 times    │ │
+│  │  #3  "in a single file"              28 times    │ │
+│  │  #4  "keep it simple"                25 times    │ │
+│  │  #5  "production ready"              19 times    │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                        │
+│  YOUR HOUSE RULES                                     │
+│  (Instructions you give Claude repeatedly)            │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  🏠  "use TypeScript"                 89 times   │ │
+│  │  🏠  "no emojis"                      67 times   │ │
+│  │  🏠  "be concise"                     52 times   │ │
+│  │  🏠  "explain your reasoning"         41 times   │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                        │
+│  💡 TIP: Add these to your CLAUDE.md file to save    │
+│     tokens and get consistent behavior!               │
+│                                                        │
+│  YOUR TECH STACK (most mentioned)                     │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  Python ████████████████████░░░░  67%            │ │
+│  │  React  ████████░░░░░░░░░░░░░░░░  28%            │ │
+│  │  SQL    ███░░░░░░░░░░░░░░░░░░░░░   5%            │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                        │
+│  PROMPT LENGTH STYLE: The Novelist 📚                 │
+│  Avg prompt: 127 words (top 15% verbosity)           │
+│  You provide rich context - Claude appreciates it!    │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
+
+### 6.5.5 Fun Personality Mappings
+
+```python
+PROMPT_PERSONALITIES = {
+    'the_explorer': {
+        'triggers': {'question_ratio': (0.6, 1.0)},
+        'description': "You learn by asking. Your curiosity drives innovation.",
+        'icon': '🔍',
+    },
+    'the_commander': {
+        'triggers': {'opening_style': 'direct', 'question_ratio': (0, 0.3)},
+        'description': "Direct and decisive. You know what you want.",
+        'icon': '⚔️',
+    },
+    'the_architect': {
+        'triggers': {'catchphrases_contain': ['step by step', 'first', 'then']},
+        'description': "You think in systems. Everything has a structure.",
+        'icon': '🏗️',
+    },
+    'the_minimalist': {
+        'triggers': {'avg_prompt_length': (0, 50), 'house_rules_contain': 'concise'},
+        'description': "Less is more. Every word earns its place.",
+        'icon': '✨',
+    },
+    'the_novelist': {
+        'triggers': {'avg_prompt_length': (100, 999)},
+        'description': "Context is king. You leave nothing to chance.",
+        'icon': '📚',
+    },
+    'the_perfectionist': {
+        'triggers': {'quality_keywords_count': (5, 99)},
+        'description': "Production-ready or bust. Quality is non-negotiable.",
+        'icon': '💎',
+    },
+}
+```
+
+### 6.5.6 Actionable Output: Auto-Generated CLAUDE.md
+
+```python
+def generate_claude_md_suggestions(signature_analysis):
+    """
+    Generate a suggested CLAUDE.md file based on user's patterns.
+
+    This saves tokens by pre-loading their "house rules".
+    """
+
+    md_content = f"""# Auto-Generated Preferences
+Based on your {signature_analysis.total_messages} messages this year.
+
+## Your Communication Style
+- You prefer {signature_analysis.communication_style} interactions
+- Average prompt length: {signature_analysis.avg_prompt_length} words
+
+## Your House Rules
+These instructions appeared repeatedly in your prompts:
+"""
+
+    for rule in signature_analysis.house_rules[:5]:
+        md_content += f"- {rule}\n"
+
+    md_content += f"""
+## Your Tech Stack
+Primary technologies you work with:
+"""
+
+    for tech in signature_analysis.top_tech_mentions[:5]:
+        md_content += f"- {tech}\n"
+
+    md_content += f"""
+## Quality Preferences
+{', '.join(signature_analysis.quality_keywords[:5])}
+
+---
+*Generated from your Claude Wrapped 2025 analysis*
+"""
+
+    return md_content
+```
+
+### 6.5.7 Implementation Notes
+
+**Privacy Considerations**:
+- All analysis happens locally
+- No prompt content leaves the device
+- Only aggregate patterns shown
+- User can exclude sensitive projects
+
+**Performance**:
+- N-gram extraction can be expensive
+- Consider sampling for users with 100k+ messages
+- Cache results after first computation
+
+**Edge Cases**:
+- New users (< 50 messages): Show "Not enough data yet"
+- Single-project users: May have skewed patterns
+- Multi-language users: Detect and separate by language
+
+---
+
 ## Part 7: Research Limitations and Future Work
 
 ### 7.1 Current Limitations
