@@ -1,0 +1,47 @@
+[project]
+name = "claude-wrapped"
+version = "1.0.0"
+description = "Generate a stunning year-in-review report for your Claude CLI usage"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Claude (the real one)", email = "not-gemini@anthropic.com" }
+]
+keywords = ["claude", "anthropic", "cli", "wrapped", "year-in-review", "vibecoding"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Tools",
+    "Topic :: Utilities",
+]
+
+dependencies = []  # Pure Python, no external deps required!
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+claude-wrapped = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/anthropics/claude-wrapped"
+Documentation = "https://github.com/anthropics/claude-wrapped#readme"
+Repository = "https://github.com/anthropics/claude-wrapped"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["main", "analyzer", "generator"]
