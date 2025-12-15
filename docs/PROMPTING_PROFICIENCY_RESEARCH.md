@@ -1268,6 +1268,472 @@ VALIDATION_METRICS = {
 
 ---
 
+## Part 8: Telemetry Server & Cross-User Analysis
+
+### 8.1 Purpose
+
+To validate research hypotheses and generate population-level insights, we need aggregated data across users. This enables:
+
+1. **Percentile calculations**: "You're in the top 15% of prompters"
+2. **Benchmark establishment**: What does "good" actually look like?
+3. **Trend identification**: How is the community improving over time?
+4. **Research validation**: Test hypotheses from Part 7
+
+### 8.2 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TELEMETRY ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   USER'S MACHINE                        TELEMETRY SERVER        │
+│   ┌─────────────────┐                  ┌─────────────────┐      │
+│   │  Claude Wrapped │                  │   API Gateway   │      │
+│   │                 │    HTTPS POST    │   (FastAPI)     │      │
+│   │  ┌───────────┐  │  ─────────────►  │                 │      │
+│   │  │ Telemetry │  │                  │  /v1/telemetry  │      │
+│   │  │  Payload  │  │                  └────────┬────────┘      │
+│   │  │ (anon)    │  │                           │               │
+│   │  └───────────┘  │                           ▼               │
+│   │                 │                  ┌─────────────────┐      │
+│   │  --no-telemetry │                  │   PostgreSQL    │      │
+│   │  to opt-out     │                  │   TimescaleDB   │      │
+│   └─────────────────┘                  └────────┬────────┘      │
+│                                                 │               │
+│                                                 ▼               │
+│                                        ┌─────────────────┐      │
+│                                        │  Analytics &    │      │
+│                                        │  Research       │      │
+│                                        │  Pipeline       │      │
+│                                        └─────────────────┘      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 8.3 Telemetry Payload Schema
+
+**Privacy-First Design**: No PII, no prompt content, only aggregate metrics.
+
+```python
+@dataclass
+class TelemetryPayload:
+    """
+    Anonymized metrics sent to telemetry server.
+
+    NEVER includes:
+    - Prompt content or conversation text
+    - File paths or project names
+    - User identifiers (name, email, IP logged separately)
+    - Code snippets or commit messages
+    """
+
+    # Metadata
+    schema_version: str = "1.0.0"
+    client_version: str = ""  # Claude Wrapped version
+    submission_id: str = ""   # Random UUID per submission
+    timestamp: str = ""       # ISO 8601
+
+    # Anonymous user fingerprint (salted hash, rotates monthly)
+    user_fingerprint: str = ""
+
+    # Aggregate usage metrics
+    total_sessions: int = 0
+    total_messages: int = 0
+    total_tokens_input: int = 0
+    total_tokens_output: int = 0
+    total_cost_usd: float = 0.0
+    date_range_days: int = 0
+
+    # Temporal patterns (no specific timestamps)
+    peak_hour: int = 0           # 0-23
+    peak_day_of_week: int = 0    # 0-6
+    weekend_ratio: float = 0.0   # 0.0-1.0
+    night_owl_ratio: float = 0.0 # Sessions 10pm-4am
+
+    # Proficiency scores (0-100)
+    prompt_engineering_score: int = 0
+    context_engineering_score: int = 0
+    memory_engineering_score: int = 0
+    tool_use_score: int = 0
+    overall_proficiency: int = 0
+
+    # Prompt DNA (aggregated, no actual phrases)
+    opening_style: str = ""      # "exploratory", "direct", etc.
+    avg_prompt_length: int = 0
+    question_ratio: float = 0.0
+    house_rules_count: int = 0
+    catchphrase_count: int = 0
+
+    # Model usage distribution
+    model_distribution: Dict[str, float] = field(default_factory=dict)
+    # e.g., {"sonnet-4": 0.65, "opus-4": 0.20, "haiku-4": 0.15}
+
+    # Tool usage patterns
+    tool_usage_distribution: Dict[str, int] = field(default_factory=dict)
+    # e.g., {"Read": 450, "Edit": 230, "Bash": 180}
+
+    # Session patterns
+    avg_session_duration_minutes: float = 0.0
+    avg_messages_per_session: float = 0.0
+    avg_tokens_per_session: float = 0.0
+    session_completion_rate: float = 0.0  # Sessions with successful outcomes
+
+    # Error/retry patterns
+    error_rate: float = 0.0
+    retry_rate: float = 0.0
+    compaction_count: int = 0
+
+    # Git integration (if enabled)
+    git_repos_count: int = 0
+    git_total_commits: int = 0
+    git_languages: List[str] = field(default_factory=list)
+    ai_code_survival_rate: float = 0.0
+
+    # Feature flags / experiments
+    features_enabled: List[str] = field(default_factory=list)
+
+
+# Example payload
+EXAMPLE_PAYLOAD = {
+    "schema_version": "1.0.0",
+    "client_version": "2025.1.0",
+    "submission_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "timestamp": "2025-12-15T10:30:00Z",
+    "user_fingerprint": "sha256:abc123...",  # Rotates monthly
+
+    "total_sessions": 342,
+    "total_messages": 4521,
+    "total_tokens_input": 2_450_000,
+    "total_tokens_output": 890_000,
+    "total_cost_usd": 127.45,
+
+    "prompt_engineering_score": 72,
+    "context_engineering_score": 65,
+    "memory_engineering_score": 58,
+    "tool_use_score": 81,
+    "overall_proficiency": 69,
+
+    "opening_style": "exploratory",
+    "avg_prompt_length": 127,
+    "question_ratio": 0.73,
+
+    "model_distribution": {
+        "claude-sonnet-4": 0.65,
+        "claude-opus-4": 0.25,
+        "claude-haiku-4": 0.10
+    },
+
+    # ... etc
+}
+```
+
+### 8.4 Server Implementation
+
+```python
+# server/main.py
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from datetime import datetime
+import hashlib
+import uuid
+
+app = FastAPI(
+    title="Claude Wrapped Telemetry",
+    description="Anonymous usage analytics for research",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
+
+class TelemetrySubmission(BaseModel):
+    schema_version: str
+    client_version: str
+    submission_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    user_fingerprint: str
+
+    # Metrics (see full schema above)
+    total_sessions: int = 0
+    total_messages: int = 0
+    total_tokens_input: int = 0
+    total_tokens_output: int = 0
+
+    prompt_engineering_score: int = 0
+    context_engineering_score: int = 0
+    memory_engineering_score: int = 0
+    tool_use_score: int = 0
+
+    # ... additional fields
+
+
+@app.post("/v1/telemetry")
+async def submit_telemetry(
+    submission: TelemetrySubmission,
+    request: Request
+):
+    """
+    Receive anonymized telemetry data.
+
+    Privacy measures:
+    - IP addresses are hashed before storage
+    - User fingerprints rotate monthly
+    - No PII validation performed
+    - Rate limited per fingerprint
+    """
+
+    # Hash IP for privacy
+    client_ip = request.client.host
+    ip_hash = hashlib.sha256(
+        f"{client_ip}:{datetime.utcnow().strftime('%Y-%m')}".encode()
+    ).hexdigest()[:16]
+
+    # Validate schema version
+    if not submission.schema_version.startswith("1."):
+        raise HTTPException(400, "Unsupported schema version")
+
+    # Store in database
+    await store_telemetry(submission, ip_hash)
+
+    return {
+        "status": "accepted",
+        "submission_id": submission.submission_id,
+        "percentiles": await calculate_percentiles(submission)
+    }
+
+
+async def calculate_percentiles(submission: TelemetrySubmission) -> dict:
+    """
+    Return user's percentile rankings based on population data.
+    """
+    # Query historical data and calculate percentiles
+    return {
+        "overall_proficiency": 74,  # "Top 26%"
+        "prompt_engineering": 68,
+        "context_engineering": 71,
+        "memory_engineering": 55,
+        "tool_use": 82,
+        "total_tokens": 45,
+        "cost_efficiency": 67,
+    }
+
+
+@app.get("/v1/benchmarks")
+async def get_benchmarks():
+    """
+    Public endpoint: aggregate benchmarks for comparison.
+    """
+    return {
+        "last_updated": "2025-12-15T00:00:00Z",
+        "sample_size": 12450,
+        "benchmarks": {
+            "prompt_engineering_score": {
+                "p25": 45, "p50": 62, "p75": 78, "p90": 88
+            },
+            "context_engineering_score": {
+                "p25": 40, "p50": 58, "p75": 72, "p90": 85
+            },
+            "memory_engineering_score": {
+                "p25": 35, "p50": 52, "p75": 68, "p90": 82
+            },
+            "tool_use_score": {
+                "p25": 50, "p50": 65, "p75": 80, "p90": 90
+            },
+            "avg_prompt_length": {
+                "p25": 35, "p50": 72, "p75": 145, "p90": 280
+            },
+            "tokens_per_session": {
+                "p25": 2500, "p50": 8500, "p75": 25000, "p90": 75000
+            },
+        }
+    }
+
+
+@app.get("/v1/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+```
+
+### 8.5 Client Integration
+
+```python
+# In main.py - add telemetry submission
+
+import urllib.request
+import json
+
+TELEMETRY_ENDPOINT = "https://telemetry.claudewrapped.dev/v1/telemetry"
+
+def generate_user_fingerprint() -> str:
+    """
+    Generate anonymous, rotating user fingerprint.
+
+    - Based on machine ID + current month
+    - Cannot be reversed to identify user
+    - Rotates monthly for privacy
+    """
+    import platform
+    import hashlib
+    from datetime import datetime
+
+    # Combine machine-specific data
+    machine_data = f"{platform.node()}:{platform.machine()}:{platform.system()}"
+
+    # Add monthly rotation
+    month_key = datetime.utcnow().strftime("%Y-%m")
+
+    # Hash for anonymity
+    fingerprint = hashlib.sha256(
+        f"{machine_data}:{month_key}:claude-wrapped-salt-2025".encode()
+    ).hexdigest()[:32]
+
+    return fingerprint
+
+
+def submit_telemetry(data: dict, quiet: bool = False) -> dict | None:
+    """
+    Submit anonymized telemetry to research server.
+
+    Returns percentile data if successful.
+    """
+    payload = {
+        "schema_version": "1.0.0",
+        "client_version": VERSION,
+        "user_fingerprint": generate_user_fingerprint(),
+        **sanitize_for_telemetry(data)
+    }
+
+    try:
+        req = urllib.request.Request(
+            TELEMETRY_ENDPOINT,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req, timeout=5) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            if not quiet:
+                print("📊 Telemetry submitted - see your percentile rankings!")
+            return result
+
+    except Exception as e:
+        if not quiet:
+            print(f"⚠️  Telemetry submission failed (offline mode): {e}")
+        return None
+
+
+def sanitize_for_telemetry(data: dict) -> dict:
+    """
+    Remove any potentially sensitive data before submission.
+
+    Strips:
+    - Project names/paths
+    - Actual prompt content
+    - Timestamps (only durations)
+    - User identifiable information
+    """
+    return {
+        "total_sessions": data.get("total_sessions", 0),
+        "total_messages": data.get("total_messages", 0),
+        "total_tokens_input": data.get("input_tokens", 0),
+        "total_tokens_output": data.get("output_tokens", 0),
+        "total_cost_usd": data.get("total_cost", 0.0),
+
+        # Proficiency scores
+        "prompt_engineering_score": data.get("prompt_engineering_score", 0),
+        "context_engineering_score": data.get("context_engineering_score", 0),
+        "memory_engineering_score": data.get("memory_engineering_score", 0),
+        "tool_use_score": data.get("tool_use_score", 0),
+
+        # Aggregated patterns only
+        "opening_style": data.get("opening_style", "unknown"),
+        "avg_prompt_length": data.get("avg_prompt_length", 0),
+        "question_ratio": data.get("question_ratio", 0.0),
+
+        # Model distribution (percentages only)
+        "model_distribution": data.get("model_distribution", {}),
+
+        # Tool counts (no specifics)
+        "tool_usage_distribution": data.get("tool_counts", {}),
+
+        # Temporal (no specific times)
+        "peak_hour": data.get("peak_hour", 0),
+        "weekend_ratio": data.get("weekend_ratio", 0.0),
+    }
+```
+
+### 8.6 Privacy & Compliance
+
+#### Data Minimization Principles
+
+1. **No prompt content**: Only aggregate metrics
+2. **No file paths**: Only counts and patterns
+3. **No timestamps**: Only durations and distributions
+4. **Rotating fingerprints**: Cannot track across months
+5. **IP hashing**: Cannot identify location
+
+#### User Controls
+
+| Option | Effect |
+|--------|--------|
+| `--no-telemetry` | Complete opt-out, no data sent |
+| `--telemetry-preview` | Show payload before sending |
+| Config file opt-out | Persistent preference |
+
+#### Data Retention
+
+- Raw telemetry: 90 days
+- Aggregated benchmarks: Indefinite
+- User fingerprints: Never stored (only used for rate limiting)
+
+### 8.7 Research Outputs
+
+With sufficient telemetry data, we can publish:
+
+1. **Quarterly benchmark reports**: Population proficiency distributions
+2. **Skill correlation studies**: Which skills predict success?
+3. **Trend analysis**: How is the community improving?
+4. **Model comparison**: Which models work best for which users?
+5. **Feature effectiveness**: Do recommendations improve outcomes?
+
+```python
+# Example research query
+RESEARCH_QUERIES = {
+    "proficiency_by_experience": """
+        SELECT
+            CASE
+                WHEN total_sessions < 50 THEN 'novice'
+                WHEN total_sessions < 200 THEN 'intermediate'
+                ELSE 'advanced'
+            END as experience_level,
+            AVG(prompt_engineering_score) as avg_prompt_score,
+            AVG(tool_use_score) as avg_tool_score,
+            COUNT(*) as user_count
+        FROM telemetry
+        WHERE timestamp > NOW() - INTERVAL '30 days'
+        GROUP BY experience_level
+    """,
+
+    "skill_correlation": """
+        SELECT
+            CORR(prompt_engineering_score, tool_use_score) as prompt_tool_corr,
+            CORR(context_engineering_score, memory_engineering_score) as ctx_mem_corr,
+            CORR(overall_proficiency, session_completion_rate) as prof_success_corr
+        FROM telemetry
+        WHERE timestamp > NOW() - INTERVAL '90 days'
+    """,
+}
+```
+
+---
+
 ## Appendix A: Full Source List
 
 ### Academic Papers
