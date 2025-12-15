@@ -194,6 +194,30 @@ Easter Eggs:
         if not args.quiet:
             print(f"⚠️  Project analysis failed: {e}", file=sys.stderr)
 
+    # Run Prompt DNA analysis
+    try:
+        from prompt_dna import analyze_prompt_dna, prompt_dna_to_dict
+
+        if not args.quiet:
+            print("🧬 Analyzing your Prompt DNA...", file=sys.stderr)
+
+        prompt_dna = analyze_prompt_dna(claude_dir)
+        dna_data = prompt_dna_to_dict(prompt_dna)
+
+        # Add to output
+        json_data['prompt_dna'] = dna_data
+
+        if not args.quiet:
+            print(f"✅ Analyzed {prompt_dna.total_prompts_analyzed} prompts", file=sys.stderr)
+            print(f"🎭 Prompt Personality: {prompt_dna.prompt_personality_icon} {prompt_dna.prompt_personality}", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  prompt_dna.py not found, skipping prompt analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Prompt DNA analysis failed: {e}", file=sys.stderr)
+
     # Run git repository analysis
     try:
         from git_analyzer import analyze_all_repos, correlate_repos_to_projects

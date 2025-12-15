@@ -1982,7 +1982,10 @@ def generate_html(data: dict) -> str:
                 </div>
             </div>
         </section>
-        
+
+        <!-- Prompt DNA Section -->
+        {generate_prompt_dna_html(data.get('prompt_dna', {}))}
+
         <!-- Top Projects Explorer -->
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
@@ -2898,6 +2901,420 @@ def generate_html(data: dict) -> str:
 </html>'''
     
     return html_content
+
+
+def generate_prompt_dna_html(dna: dict) -> str:
+    """Generate HTML for the Prompt DNA section."""
+    if not dna or not dna.get('total_prompts_analyzed'):
+        return ""
+
+    # Escape helper
+    def e(s):
+        return html.escape(str(s)) if s else ""
+
+    personality = e(dna.get('prompt_personality', 'Unknown'))
+    personality_desc = e(dna.get('prompt_personality_description', ''))
+    personality_icon = dna.get('prompt_personality_icon', '🧬')
+    prompt_style = e(dna.get('prompt_style', 'balanced'))
+    total_prompts = dna.get('total_prompts_analyzed', 0)
+    avg_length = dna.get('avg_prompt_length_words', 0)
+    question_ratio = dna.get('question_ratio', 0) * 100
+
+    # Build catchphrases HTML
+    catchphrases = dna.get('top_catchphrases', [])[:5]
+    catchphrases_html = ""
+    if catchphrases:
+        items = []
+        for i, (phrase, count) in enumerate(catchphrases):
+            rank = i + 1
+            items.append(f'''
+                <div class="dna-catchphrase">
+                    <span class="catchphrase-rank">#{rank}</span>
+                    <span class="catchphrase-text">"{e(phrase)}"</span>
+                    <span class="catchphrase-count">{count}x</span>
+                </div>
+            ''')
+        catchphrases_html = ''.join(items)
+
+    # Build house rules HTML
+    house_rules = dna.get('house_rules', [])[:5]
+    house_rules_html = ""
+    if house_rules:
+        items = []
+        for rule, count in house_rules:
+            items.append(f'''
+                <div class="dna-rule">
+                    <span class="rule-icon">📌</span>
+                    <span class="rule-text">{e(rule)}</span>
+                    <span class="rule-count">{count}x</span>
+                </div>
+            ''')
+        house_rules_html = ''.join(items)
+
+    # Build role assignments HTML
+    roles = dna.get('role_assignments', [])[:5]
+    roles_html = ""
+    if roles:
+        items = []
+        for role, count in roles:
+            items.append(f'''
+                <div class="dna-role">
+                    <span class="role-prefix">You are a</span>
+                    <span class="role-text">{e(role)}</span>
+                    <span class="role-count">{count}x</span>
+                </div>
+            ''')
+        roles_html = ''.join(items)
+
+    # Build tech mentions HTML
+    tech = dna.get('tech_mentions', {})
+    tech_html = ""
+    if tech:
+        sorted_tech = sorted(tech.items(), key=lambda x: -x[1])[:8]
+        items = []
+        for t, count in sorted_tech:
+            items.append(f'<span class="tech-tag">{e(t)}</span>')
+        tech_html = ''.join(items)
+
+    # Generated CLAUDE.md
+    claude_md = dna.get('generated_claude_md', '')
+    claude_md_escaped = e(claude_md)
+
+    # Quality scores
+    clarity = int(dna.get('clarity_score', 0) * 100)
+    structure = int(dna.get('structure_score', 0) * 100)
+    context = int(dna.get('context_score', 0) * 100)
+
+    return f'''
+        <!-- Prompt DNA Section -->
+        <section class="chart-section prompt-dna-section">
+            <div class="chart-title"><span>🧬</span> Your Prompt DNA</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Analyzed from {total_prompts:,} prompts • Avg {avg_length:.0f} words • {question_ratio:.0f}% questions
+            </p>
+
+            <!-- Prompt Personality Card -->
+            <div class="verdict-section" style="margin-bottom: 2rem;">
+                <div class="verdict-grid" style="grid-template-columns: 1fr;">
+                    <div class="verdict-card purple" style="text-align: center;">
+                        <div class="verdict-icon">{personality_icon}</div>
+                        <div class="verdict-subtitle">Your Prompt Personality</div>
+                        <div class="verdict-title">{personality}</div>
+                        <div class="verdict-desc">{personality_desc}</div>
+                        <div style="margin-top: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Style: {prompt_style}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catchphrases & House Rules Grid -->
+            <div class="dna-grid">
+                <!-- Catchphrases -->
+                <div class="dna-card">
+                    <div class="dna-card-title">💬 Your Catchphrases</div>
+                    <div class="dna-card-subtitle">Phrases you use repeatedly</div>
+                    <div class="dna-list">
+                        {catchphrases_html if catchphrases_html else '<div class="dna-empty">Not enough data yet</div>'}
+                    </div>
+                </div>
+
+                <!-- House Rules -->
+                <div class="dna-card">
+                    <div class="dna-card-title">📋 Your House Rules</div>
+                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly</div>
+                    <div class="dna-list">
+                        {house_rules_html if house_rules_html else '<div class="dna-empty">Not enough data yet</div>'}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role Assignments -->
+            {f"""
+            <div class="dna-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">🎭 Roles You Summon</div>
+                <div class="dna-card-subtitle">Your most common role assignments</div>
+                <div class="dna-list">
+                    {roles_html}
+                </div>
+            </div>
+            """ if roles_html else ""}
+
+            <!-- Tech Stack -->
+            {f"""
+            <div class="dna-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">⚡ Tech You Mention</div>
+                <div class="tech-tags">
+                    {tech_html}
+                </div>
+            </div>
+            """ if tech_html else ""}
+
+            <!-- Quality Scores -->
+            <div class="dna-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">📊 Prompt Quality Signals</div>
+                <div class="dna-card-subtitle">Based on research-backed indicators</div>
+                <div class="quality-bars">
+                    <div class="quality-bar">
+                        <span class="quality-label">Clarity</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {clarity}%; background: var(--neon-cyan);"></div>
+                        </div>
+                        <span class="quality-value">{clarity}%</span>
+                    </div>
+                    <div class="quality-bar">
+                        <span class="quality-label">Structure</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {structure}%; background: var(--neon-purple);"></div>
+                        </div>
+                        <span class="quality-value">{structure}%</span>
+                    </div>
+                    <div class="quality-bar">
+                        <span class="quality-label">Context</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {context}%; background: var(--neon-pink);"></div>
+                        </div>
+                        <span class="quality-value">{context}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate CLAUDE.md Button -->
+            <div class="dna-card claude-md-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">📝 Generate Your CLAUDE.md</div>
+                <div class="dna-card-subtitle">Based on your detected preferences</div>
+                <button class="claude-md-toggle" onclick="toggleClaudeMd()">
+                    Show Generated CLAUDE.md
+                </button>
+                <div class="claude-md-content" id="claudeMdContent" style="display: none;">
+                    <pre class="claude-md-preview">{claude_md_escaped}</pre>
+                    <button class="claude-md-copy" onclick="copyClaudeMd()">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <style>
+            .prompt-dna-section {{
+                background: linear-gradient(180deg, rgba(139, 92, 246, 0.1) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .dna-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1.5rem;
+            }}
+
+            .dna-card {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 16px;
+                padding: 1.5rem;
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .dna-card-title {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: var(--neon-purple);
+                margin-bottom: 0.25rem;
+            }}
+
+            .dna-card-subtitle {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 1rem;
+            }}
+
+            .dna-list {{
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }}
+
+            .dna-catchphrase, .dna-rule, .dna-role {{
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.5rem;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
+            }}
+
+            .catchphrase-rank {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.8rem;
+                color: var(--neon-cyan);
+                min-width: 2rem;
+            }}
+
+            .catchphrase-text, .rule-text, .role-text {{
+                flex: 1;
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 0.9rem;
+            }}
+
+            .catchphrase-count, .rule-count, .role-count {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.75rem;
+                color: var(--neon-pink);
+                background: rgba(255, 0, 110, 0.2);
+                padding: 0.2rem 0.5rem;
+                border-radius: 4px;
+            }}
+
+            .rule-icon {{
+                font-size: 1rem;
+            }}
+
+            .role-prefix {{
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.85rem;
+            }}
+
+            .tech-tags {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }}
+
+            .tech-tag {{
+                background: rgba(0, 245, 255, 0.15);
+                color: var(--neon-cyan);
+                padding: 0.4rem 0.8rem;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                border: 1px solid rgba(0, 245, 255, 0.3);
+            }}
+
+            .quality-bars {{
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }}
+
+            .quality-bar {{
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }}
+
+            .quality-label {{
+                min-width: 80px;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.7);
+            }}
+
+            .quality-track {{
+                flex: 1;
+                height: 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+
+            .quality-fill {{
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.5s ease;
+            }}
+
+            .quality-value {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.85rem;
+                min-width: 40px;
+                text-align: right;
+            }}
+
+            .claude-md-card {{
+                text-align: center;
+            }}
+
+            .claude-md-toggle {{
+                background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                font-family: 'Orbitron', monospace;
+                font-size: 0.9rem;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+
+            .claude-md-toggle:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+            }}
+
+            .claude-md-content {{
+                margin-top: 1rem;
+                text-align: left;
+            }}
+
+            .claude-md-preview {{
+                background: rgba(0, 0, 0, 0.5);
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: 'Fira Code', monospace;
+                font-size: 0.8rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+                max-height: 400px;
+                overflow-y: auto;
+                color: rgba(255, 255, 255, 0.85);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .claude-md-copy {{
+                margin-top: 1rem;
+                background: rgba(0, 245, 255, 0.2);
+                border: 1px solid var(--neon-cyan);
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                color: var(--neon-cyan);
+                font-family: 'Orbitron', monospace;
+                font-size: 0.85rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }}
+
+            .claude-md-copy:hover {{
+                background: rgba(0, 245, 255, 0.3);
+            }}
+
+            .dna-empty {{
+                color: rgba(255, 255, 255, 0.4);
+                font-style: italic;
+                text-align: center;
+                padding: 1rem;
+            }}
+        </style>
+
+        <script>
+            function toggleClaudeMd() {{
+                const content = document.getElementById('claudeMdContent');
+                const btn = document.querySelector('.claude-md-toggle');
+                if (content.style.display === 'none') {{
+                    content.style.display = 'block';
+                    btn.textContent = 'Hide Generated CLAUDE.md';
+                }} else {{
+                    content.style.display = 'none';
+                    btn.textContent = 'Show Generated CLAUDE.md';
+                }}
+            }}
+
+            function copyClaudeMd() {{
+                const pre = document.querySelector('.claude-md-preview');
+                navigator.clipboard.writeText(pre.textContent).then(() => {{
+                    const btn = document.querySelector('.claude-md-copy');
+                    const original = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => btn.textContent = original, 2000);
+                }});
+            }}
+        </script>
+    '''
 
 
 def generate_model_tags(model_items: list) -> str:

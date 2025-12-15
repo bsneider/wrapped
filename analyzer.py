@@ -1310,14 +1310,27 @@ def analyze_claude_directory(claude_dir: Path) -> ClaudeWrappedData:
 
 def to_json_serializable(data: ClaudeWrappedData) -> dict:
     """Convert dataclass to JSON-serializable dict."""
-    result = {}
-    for key, value in asdict(data).items():
+
+    def convert_value(value):
+        """Recursively convert non-JSON-serializable types."""
         if isinstance(value, defaultdict):
-            result[key] = dict(value)
+            return {k: convert_value(v) for k, v in value.items()}
+        elif isinstance(value, dict):
+            return {k: convert_value(v) for k, v in value.items()}
         elif isinstance(value, set):
-            result[key] = list(value)
+            return list(value)
+        elif isinstance(value, list):
+            return [convert_value(v) for v in value]
+        elif hasattr(value, '__dataclass_fields__'):
+            # Handle nested dataclasses
+            return {k: convert_value(getattr(value, k)) for k in value.__dataclass_fields__}
         else:
-            result[key] = value
+            return value
+
+    result = {}
+    for field_name in data.__dataclass_fields__:
+        value = getattr(data, field_name)
+        result[field_name] = convert_value(value)
     return result
 
 
