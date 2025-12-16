@@ -1983,6 +1983,12 @@ def generate_html(data: dict) -> str:
             </div>
         </section>
 
+        <!-- Community Percentile Rankings -->
+        {generate_percentile_html(data.get('community_benchmarks', {}))}
+
+        <!-- Achievements -->
+        {generate_achievements_html(data.get('achievements', []))}
+
         <!-- Prompt DNA Section -->
         {generate_prompt_dna_html(data.get('prompt_dna', {}))}
 
@@ -3331,6 +3337,234 @@ def generate_html(data: dict) -> str:
     return html_content
 
 
+def generate_percentile_html(benchmarks: dict) -> str:
+    """Generate HTML for community percentile rankings."""
+    if not benchmarks or not benchmarks.get('total_users'):
+        return ""
+
+    total_users = benchmarks.get('total_users', 0)
+    session_percentile = benchmarks.get('session_percentile', 50)
+    cost_percentile = benchmarks.get('cost_percentile', 50)
+    avg_sessions = benchmarks.get('avg_sessions', 0)
+    avg_cost = benchmarks.get('avg_cost', 0)
+
+    session_rank = 100 - session_percentile
+    cost_rank = 100 - cost_percentile
+
+    return f'''
+        <!-- Community Rankings Section -->
+        <section class="chart-section percentile-section">
+            <div class="chart-title"><span>🌍</span> Community Rankings</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Compared to {total_users:,} Claude Wrapped users
+            </p>
+
+            <div class="percentile-grid">
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {session_percentile}; --ring-color: var(--neon-cyan);">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--neon-cyan)" stroke-width="6"
+                                stroke-dasharray="{session_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {session_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Sessions</div>
+                    <div class="percentile-detail">Avg: {avg_sessions:,}</div>
+                </div>
+
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {cost_percentile}; --ring-color: var(--neon-pink);">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--neon-pink)" stroke-width="6"
+                                stroke-dasharray="{cost_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {cost_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Investment</div>
+                    <div class="percentile-detail">Avg: ${avg_cost:.2f}</div>
+                </div>
+            </div>
+        </section>
+
+        <style>
+            .percentile-section {{
+                background: linear-gradient(180deg, rgba(0, 245, 255, 0.05) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .percentile-grid {{
+                display: flex;
+                justify-content: center;
+                gap: 4rem;
+                flex-wrap: wrap;
+            }}
+
+            .percentile-card {{
+                text-align: center;
+            }}
+
+            .percentile-ring {{
+                width: 140px;
+                height: 140px;
+                position: relative;
+                margin: 0 auto 1rem;
+            }}
+
+            .percentile-ring svg {{
+                width: 100%;
+                height: 100%;
+            }}
+
+            .percentile-value {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Orbitron', monospace;
+                font-size: 1.2rem;
+                font-weight: bold;
+                color: white;
+            }}
+
+            .percentile-label {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1rem;
+                color: white;
+                margin-bottom: 0.25rem;
+            }}
+
+            .percentile-detail {{
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.5);
+            }}
+        </style>
+    '''
+
+
+def generate_achievements_html(achievements: list) -> str:
+    """Generate HTML for achievements/badges."""
+    if not achievements:
+        return ""
+
+    # Sort by tier (gold first, then silver, bronze, special)
+    tier_order = {'gold': 0, 'silver': 1, 'bronze': 2, 'special': 3}
+    sorted_achievements = sorted(achievements, key=lambda x: tier_order.get(x.get('tier', 'special'), 99))
+
+    tier_colors = {
+        'gold': 'linear-gradient(135deg, #FFD700, #FFA500)',
+        'silver': 'linear-gradient(135deg, #C0C0C0, #A0A0A0)',
+        'bronze': 'linear-gradient(135deg, #CD7F32, #8B4513)',
+        'special': 'linear-gradient(135deg, var(--neon-purple), var(--neon-pink))',
+    }
+
+    tier_borders = {
+        'gold': 'rgba(255, 215, 0, 0.5)',
+        'silver': 'rgba(192, 192, 192, 0.5)',
+        'bronze': 'rgba(205, 127, 50, 0.5)',
+        'special': 'rgba(139, 92, 246, 0.5)',
+    }
+
+    badges_html = ""
+    for badge in sorted_achievements:
+        tier = badge.get('tier', 'special')
+        badges_html += f'''
+            <div class="achievement-badge" style="--badge-gradient: {tier_colors.get(tier, tier_colors['special'])}; --badge-border: {tier_borders.get(tier, tier_borders['special'])};">
+                <div class="badge-icon">{badge.get('icon', '🏆')}</div>
+                <div class="badge-info">
+                    <div class="badge-name">{html.escape(badge.get('name', ''))}</div>
+                    <div class="badge-desc">{html.escape(badge.get('desc', ''))}</div>
+                </div>
+                <div class="badge-tier">{tier.upper()}</div>
+            </div>
+        '''
+
+    return f'''
+        <!-- Achievements Section -->
+        <section class="chart-section achievements-section">
+            <div class="chart-title"><span>🏆</span> Achievements Unlocked</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                {len(achievements)} badges earned this year
+            </p>
+
+            <div class="achievements-grid">
+                {badges_html}
+            </div>
+        </section>
+
+        <style>
+            .achievements-section {{
+                background: linear-gradient(180deg, rgba(255, 215, 0, 0.03) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .achievements-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 1rem;
+                max-width: 900px;
+                margin: 0 auto;
+            }}
+
+            .achievement-badge {{
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                background: rgba(20, 20, 35, 0.9);
+                border: 1px solid var(--badge-border);
+                border-radius: 12px;
+                padding: 1rem;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+
+            .achievement-badge:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            }}
+
+            .badge-icon {{
+                font-size: 2rem;
+                width: 50px;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--badge-gradient);
+                border-radius: 10px;
+                flex-shrink: 0;
+            }}
+
+            .badge-info {{
+                flex: 1;
+                min-width: 0;
+            }}
+
+            .badge-name {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.95rem;
+                color: white;
+                margin-bottom: 0.25rem;
+            }}
+
+            .badge-desc {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.6);
+            }}
+
+            .badge-tier {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.65rem;
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+                background: var(--badge-gradient);
+                color: black;
+                font-weight: bold;
+            }}
+        </style>
+    '''
+
+
 def generate_prompt_dna_html(dna: dict) -> str:
     """Generate HTML for the Prompt DNA section."""
     if not dna or not dna.get('total_prompts_analyzed'):
@@ -3819,19 +4053,60 @@ def generate_proficiency_html(proficiency: dict) -> str:
                 Based on 25+ academic papers on prompt engineering effectiveness
             </p>
 
-            <!-- Overall Score -->
-            <div class="prof-overall">
-                <div class="prof-overall-score" style="--level-color: {level_color};">
-                    <div class="prof-score-ring">
-                        <svg viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
-                            <circle cx="50" cy="50" r="45" fill="none" stroke="{level_color}" stroke-width="8"
-                                stroke-dasharray="{overall * 2.83} 283"
-                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
-                        </svg>
-                        <div class="prof-score-value">{overall}</div>
+            <!-- Overall Score + Radar Chart -->
+            <div class="prof-overview">
+                <div class="prof-overall">
+                    <div class="prof-overall-score" style="--level-color: {level_color};">
+                        <div class="prof-score-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="{level_color}" stroke-width="8"
+                                    stroke-dasharray="{overall * 2.83} 283"
+                                    stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                            </svg>
+                            <div class="prof-score-value">{overall}</div>
+                        </div>
+                        <div class="prof-level" style="color: {level_color};">{level}</div>
                     </div>
-                    <div class="prof-level" style="color: {level_color};">{level}</div>
+                </div>
+
+                <!-- Radar Chart -->
+                <div class="prof-radar">
+                    <svg viewBox="0 0 200 200" class="radar-chart">
+                        <!-- Background rings -->
+                        <polygon points="100,20 170,65 170,135 100,180 30,135 30,65" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,40 150,72.5 150,127.5 100,160 50,127.5 50,72.5" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,60 130,80 130,120 100,140 70,120 70,80" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,80 110,87.5 110,112.5 100,120 90,112.5 90,87.5" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+                        <!-- Axis lines -->
+                        <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="170" y2="65" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="170" y2="135" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="100" y2="180" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="30" y2="135" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="30" y2="65" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+
+                        <!-- Data polygon (6 axes: Prompt, Context, Memory, Tools, and 2 placeholders for symmetry) -->
+                        <polygon
+                            points="100,{100 - prompt_score * 0.8} {100 + context_score * 0.7},{100 - context_score * 0.35} {100 + memory_score * 0.7},{100 + memory_score * 0.35} 100,{100 + tool_score * 0.8} {100 - tool_score * 0.7},{100 + memory_score * 0.35} {100 - context_score * 0.7},{100 - context_score * 0.35}"
+                            fill="rgba(139, 92, 246, 0.3)"
+                            stroke="var(--neon-purple)"
+                            stroke-width="2"
+                        />
+
+                        <!-- Data points -->
+                        <circle cx="100" cy="{100 - prompt_score * 0.8}" r="4" fill="var(--neon-cyan)"/>
+                        <circle cx="{100 + context_score * 0.7}" cy="{100 - context_score * 0.35}" r="4" fill="var(--neon-purple)"/>
+                        <circle cx="{100 + memory_score * 0.7}" cy="{100 + memory_score * 0.35}" r="4" fill="var(--neon-pink)"/>
+                        <circle cx="100" cy="{100 + tool_score * 0.8}" r="4" fill="var(--neon-green)"/>
+
+                        <!-- Labels -->
+                        <text x="100" y="10" text-anchor="middle" fill="var(--neon-cyan)" font-size="10" font-family="Orbitron">Prompt</text>
+                        <text x="180" y="65" text-anchor="start" fill="var(--neon-purple)" font-size="10" font-family="Orbitron">Context</text>
+                        <text x="180" y="145" text-anchor="start" fill="var(--neon-pink)" font-size="10" font-family="Orbitron">Memory</text>
+                        <text x="100" y="198" text-anchor="middle" fill="var(--neon-green)" font-size="10" font-family="Orbitron">Tools</text>
+                    </svg>
                 </div>
             </div>
 
@@ -3944,10 +4219,28 @@ def generate_proficiency_html(proficiency: dict) -> str:
                 background: linear-gradient(180deg, rgba(0, 245, 255, 0.05) 0%, rgba(20, 20, 35, 0.8) 100%);
             }}
 
+            .prof-overview {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 3rem;
+                flex-wrap: wrap;
+                margin-bottom: 2rem;
+            }}
+
             .prof-overall {{
                 display: flex;
                 justify-content: center;
-                margin-bottom: 2rem;
+            }}
+
+            .prof-radar {{
+                width: 200px;
+                height: 200px;
+            }}
+
+            .radar-chart {{
+                width: 100%;
+                height: 100%;
             }}
 
             .prof-overall-score {{

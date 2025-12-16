@@ -473,6 +473,149 @@ Easter Eggs:
             if not args.quiet:
                 print(f"⚠️  Metrics sync skipped: {e}", file=sys.stderr)
 
+    # Fetch community benchmarks for percentile rankings
+    try:
+        import urllib.request
+
+        if not args.quiet:
+            print("📊 Fetching community benchmarks...", file=sys.stderr)
+
+        req = urllib.request.Request(
+            'https://claude-wrapped-telemetry.pierretokns.workers.dev/api/benchmarks',
+            headers={'Accept': 'application/json'},
+            method='GET'
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            benchmarks_data = json.loads(resp.read().decode('utf-8'))
+
+            if benchmarks_data.get('success'):
+                benchmarks = benchmarks_data['data']['benchmarks']
+                total_community = benchmarks_data['data']['total_users']
+
+                # Calculate percentiles for user
+                user_sessions = json_data.get('total_sessions', 0)
+                user_cost = json_data.get('total_cost_usd', 0)
+
+                def calc_percentile(value, p25, p50, p75, p90, max_val):
+                    """Estimate percentile based on distribution markers."""
+                    if value >= max_val:
+                        return 99
+                    elif value >= p90:
+                        return 90 + int((value - p90) / (max_val - p90 + 1) * 9)
+                    elif value >= p75:
+                        return 75 + int((value - p75) / (p90 - p75 + 1) * 15)
+                    elif value >= p50:
+                        return 50 + int((value - p50) / (p75 - p50 + 1) * 25)
+                    elif value >= p25:
+                        return 25 + int((value - p25) / (p50 - p25 + 1) * 25)
+                    else:
+                        return max(1, int(value / (p25 + 1) * 25))
+
+                session_percentile = calc_percentile(
+                    user_sessions,
+                    benchmarks['sessions']['p25'],
+                    benchmarks['sessions']['p50'],
+                    benchmarks['sessions']['p75'],
+                    benchmarks['sessions']['p90'],
+                    benchmarks['sessions']['max']
+                )
+
+                cost_percentile = calc_percentile(
+                    user_cost,
+                    benchmarks['cost_usd']['p25'],
+                    benchmarks['cost_usd']['p50'],
+                    benchmarks['cost_usd']['p75'],
+                    benchmarks['cost_usd']['p90'],
+                    benchmarks['cost_usd']['max']
+                )
+
+                json_data['community_benchmarks'] = {
+                    'total_users': total_community,
+                    'session_percentile': session_percentile,
+                    'cost_percentile': cost_percentile,
+                    'avg_sessions': benchmarks['sessions']['avg'],
+                    'avg_cost': benchmarks['cost_usd']['avg'],
+                }
+
+                if not args.quiet:
+                    print(f"✅ You're in the top {100 - session_percentile}% by sessions!", file=sys.stderr)
+
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Benchmarks skipped: {e}", file=sys.stderr)
+
+    # Generate achievements
+    achievements = []
+
+    total_sessions = json_data.get('total_sessions', 0)
+    total_cost = json_data.get('total_cost_usd', 0)
+    total_tokens = (json_data.get('total_input_tokens', 0) or 0) + (json_data.get('total_output_tokens', 0) or 0)
+    longest_streak = json_data.get('longest_streak_days', 0)
+    weekend_ratio = json_data.get('weekend_ratio', 0)
+    peak_hour = json_data.get('peak_hour', 12)
+    tool_freq = json_data.get('tool_frequency', {})
+    proficiency = json_data.get('proficiency', {})
+
+    # Session milestones
+    if total_sessions >= 500:
+        achievements.append({'id': 'sessions_500', 'name': 'Power User', 'icon': '⚡', 'desc': '500+ sessions', 'tier': 'gold'})
+    elif total_sessions >= 250:
+        achievements.append({'id': 'sessions_250', 'name': 'Regular', 'icon': '🎯', 'desc': '250+ sessions', 'tier': 'silver'})
+    elif total_sessions >= 100:
+        achievements.append({'id': 'sessions_100', 'name': 'Getting Started', 'icon': '🌱', 'desc': '100+ sessions', 'tier': 'bronze'})
+
+    # Token usage
+    if total_tokens >= 10_000_000:
+        achievements.append({'id': 'tokens_10m', 'name': 'Token Titan', 'icon': '🏆', 'desc': '10M+ tokens', 'tier': 'gold'})
+    elif total_tokens >= 1_000_000:
+        achievements.append({'id': 'tokens_1m', 'name': 'Token Master', 'icon': '🔤', 'desc': '1M+ tokens', 'tier': 'silver'})
+
+    # Streak
+    if longest_streak >= 30:
+        achievements.append({'id': 'streak_30', 'name': 'Month Warrior', 'icon': '🔥', 'desc': '30+ day streak', 'tier': 'gold'})
+    elif longest_streak >= 14:
+        achievements.append({'id': 'streak_14', 'name': 'Two Week Streak', 'icon': '📅', 'desc': '14+ day streak', 'tier': 'silver'})
+    elif longest_streak >= 7:
+        achievements.append({'id': 'streak_7', 'name': 'Week Warrior', 'icon': '🗓️', 'desc': '7+ day streak', 'tier': 'bronze'})
+
+    # Time-based
+    if peak_hour >= 22 or peak_hour <= 4:
+        achievements.append({'id': 'night_owl', 'name': 'Night Owl', 'icon': '🦉', 'desc': 'Peak coding after 10pm', 'tier': 'special'})
+    elif peak_hour >= 5 and peak_hour <= 8:
+        achievements.append({'id': 'early_bird', 'name': 'Early Bird', 'icon': '🐦', 'desc': 'Peak coding before 9am', 'tier': 'special'})
+
+    if weekend_ratio and weekend_ratio > 0.4:
+        achievements.append({'id': 'weekend_warrior', 'name': 'Weekend Warrior', 'icon': '⚔️', 'desc': '40%+ weekend coding', 'tier': 'special'})
+
+    # Tool mastery
+    if tool_freq.get('Task', 0) >= 50:
+        achievements.append({'id': 'delegator', 'name': 'The Delegator', 'icon': '👥', 'desc': '50+ Task tool uses', 'tier': 'silver'})
+    if tool_freq.get('Bash', 0) >= 500:
+        achievements.append({'id': 'shell_master', 'name': 'Shell Master', 'icon': '💻', 'desc': '500+ Bash commands', 'tier': 'silver'})
+    if tool_freq.get('Edit', 0) >= 1000:
+        achievements.append({'id': 'editor', 'name': 'Code Surgeon', 'icon': '✂️', 'desc': '1000+ edits', 'tier': 'silver'})
+
+    # Proficiency-based
+    overall_prof = proficiency.get('overall_proficiency', 0)
+    if overall_prof >= 80:
+        achievements.append({'id': 'prof_expert', 'name': 'Prompting Expert', 'icon': '🎓', 'desc': '80+ proficiency', 'tier': 'gold'})
+    elif overall_prof >= 65:
+        achievements.append({'id': 'prof_advanced', 'name': 'Advanced Prompter', 'icon': '📚', 'desc': '65+ proficiency', 'tier': 'silver'})
+
+    if proficiency.get('tool_use_score', 0) >= 80:
+        achievements.append({'id': 'tool_master', 'name': 'Tool Master', 'icon': '🛠️', 'desc': 'Expert tool usage', 'tier': 'gold'})
+
+    # Cost efficiency (cost per session)
+    if total_sessions > 50 and total_cost / total_sessions < 0.30:
+        achievements.append({'id': 'efficient', 'name': 'Efficiency Expert', 'icon': '💡', 'desc': '<$0.30/session', 'tier': 'silver'})
+
+    # First wrapped (everyone gets this)
+    achievements.append({'id': 'first_wrapped', 'name': 'Wrapped 2025', 'icon': '🎁', 'desc': 'Generated your first wrapped', 'tier': 'special'})
+
+    json_data['achievements'] = achievements
+    if not args.quiet and achievements:
+        print(f"🏆 Unlocked {len(achievements)} achievements!", file=sys.stderr)
+
     # Generate output
     if args.json:
         output = json.dumps(json_data, indent=2, default=str)
