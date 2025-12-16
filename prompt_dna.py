@@ -146,6 +146,37 @@ ROLE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Template detection patterns
+TEMPLATE_INDICATORS = [
+    r'\(\d+\s*pts?\)',           # (5pts), (10 pt)
+    r'\d+\s*points?',            # 5 points
+    r'/\d+\)?',                  # /10, /5)
+    r'score:',                   # score:
+    r'rating:',                  # rating:
+    r'\byes\s*/\s*no\b',         # yes/no
+    r'^\s*\d+[\.\)]\s',          # numbered list at start
+    r'\[\s*[x✓✗ ]\s*\]',        # checkboxes [x] [ ]
+    r'criteria:',                # criteria:
+    r'rubric',                   # rubric
+    r'checklist',                # checklist
+    r'evaluate',                 # evaluate
+    r'assessment',               # assessment
+]
+
+
+def detect_template_context(message: str, match_pos: int, window: int = 100) -> bool:
+    """Check if a match appears within a template/structured context."""
+    # Get surrounding context
+    start = max(0, match_pos - window)
+    end = min(len(message), match_pos + window)
+    context = message[start:end].lower()
+
+    for pattern in TEMPLATE_INDICATORS:
+        if re.search(pattern, context, re.IGNORECASE | re.MULTILINE):
+            return True
+    return False
+
+
 # Stopwords to filter from n-grams
 STOPWORDS = {
     'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -249,15 +280,19 @@ def extract_catchphrases(messages: list[str], min_count: int = 3) -> list[tuple[
     return final
 
 
-def extract_house_rules(messages: list[str], min_count: int = 2) -> list[tuple[str, int]]:
-    """Extract recurring instructions (house rules)."""
+def extract_house_rules(messages: list[str], min_count: int = 2) -> list[tuple[str, int, str]]:
+    """Extract recurring instructions (house rules).
+
+    Returns list of (rule, count, source_type) where source_type is 'template' or 'freeform'.
+    """
     rules = Counter()
+    rule_template_counts = Counter()  # Track how often each rule appears in template context
 
     for msg in messages:
         msg_lower = msg.lower()
         for pattern, rule_type in INSTRUCTION_PATTERNS:
-            matches = re.findall(pattern, msg_lower)
-            for match in matches:
+            for match_obj in re.finditer(pattern, msg_lower):
+                match = match_obj.group(1)
                 # Clean up the match
                 rule = match.strip()
                 if len(rule) > 3 and len(rule) < 50:
@@ -287,20 +322,34 @@ def extract_house_rules(messages: list[str], min_count: int = 2) -> list[tuple[s
 
                     rules[rule_text] += 1
 
-    # Filter by minimum count
-    filtered = [(rule, count) for rule, count in rules.items() if count >= min_count]
-    filtered.sort(key=lambda x: x[1], reverse=True)
+                    # Check if this occurrence is in a template context
+                    if detect_template_context(msg, match_obj.start()):
+                        rule_template_counts[rule_text] += 1
 
+    # Filter by minimum count and determine source type
+    filtered = []
+    for rule, count in rules.items():
+        if count >= min_count:
+            template_count = rule_template_counts.get(rule, 0)
+            # If >50% of occurrences are in template context, mark as template
+            source_type = 'template' if template_count > count * 0.5 else 'freeform'
+            filtered.append((rule, count, source_type))
+
+    filtered.sort(key=lambda x: x[1], reverse=True)
     return filtered[:15]
 
 
-def extract_role_assignments(messages: list[str], min_count: int = 2) -> list[tuple[str, int]]:
-    """Extract role assignments like 'You are a...'"""
+def extract_role_assignments(messages: list[str], min_count: int = 2) -> list[tuple[str, int, str]]:
+    """Extract role assignments like 'You are a...'
+
+    Returns list of (role, count, source_type) where source_type is 'template' or 'freeform'.
+    """
     roles = Counter()
+    role_template_counts = Counter()
 
     for msg in messages:
-        matches = ROLE_PATTERN.findall(msg)
-        for match in matches:
+        for match_obj in ROLE_PATTERN.finditer(msg):
+            match = match_obj.group(1)
             role = match.strip().lower()
             # Clean up common suffixes
             role = re.sub(r'\s+who\s.*$', '', role)
@@ -308,10 +357,18 @@ def extract_role_assignments(messages: list[str], min_count: int = 2) -> list[tu
             role = re.sub(r'\s+specializing\s.*$', '', role)
             if len(role) > 5 and len(role) < 60:
                 roles[role] += 1
+                # Check template context
+                if detect_template_context(msg, match_obj.start()):
+                    role_template_counts[role] += 1
 
-    filtered = [(role, count) for role, count in roles.items() if count >= min_count]
+    filtered = []
+    for role, count in roles.items():
+        if count >= min_count:
+            template_count = role_template_counts.get(role, 0)
+            source_type = 'template' if template_count > count * 0.5 else 'freeform'
+            filtered.append((role, count, source_type))
+
     filtered.sort(key=lambda x: x[1], reverse=True)
-
     return filtered[:10]
 
 
@@ -704,12 +761,39 @@ def analyze_prompt_dna(claude_dir: Path) -> PromptDNA:
 
 def prompt_dna_to_dict(dna: PromptDNA) -> dict:
     """Convert PromptDNA to JSON-serializable dict."""
+    # Convert house_rules and role_assignments to dicts with source_type
+    house_rules_dicts = []
+    for item in dna.house_rules:
+        if len(item) == 3:
+            rule, count, source_type = item
+        else:
+            rule, count = item
+            source_type = 'freeform'
+        house_rules_dicts.append({
+            'text': rule,
+            'count': count,
+            'source': source_type
+        })
+
+    role_assignments_dicts = []
+    for item in dna.role_assignments:
+        if len(item) == 3:
+            role, count, source_type = item
+        else:
+            role, count = item
+            source_type = 'freeform'
+        role_assignments_dicts.append({
+            'text': role,
+            'count': count,
+            'source': source_type
+        })
+
     return {
         'total_prompts_analyzed': dna.total_prompts_analyzed,
         'total_words': dna.total_words,
         'top_catchphrases': dna.top_catchphrases,
-        'house_rules': dna.house_rules,
-        'role_assignments': dna.role_assignments,
+        'house_rules': house_rules_dicts,
+        'role_assignments': role_assignments_dicts,
         'output_formats': dna.output_formats,
         'avg_prompt_length_words': round(dna.avg_prompt_length_words, 1),
         'avg_prompt_length_chars': round(dna.avg_prompt_length_chars, 1),

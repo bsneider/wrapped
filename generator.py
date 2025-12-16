@@ -3598,29 +3598,50 @@ def generate_prompt_dna_html(dna: dict) -> str:
             ''')
         catchphrases_html = ''.join(items)
 
-    # Build house rules HTML
+    # Build house rules HTML (now with source badges)
     house_rules = dna.get('house_rules', [])[:5]
     house_rules_html = ""
     if house_rules:
         items = []
-        for rule, count in house_rules:
+        for rule_item in house_rules:
+            # Handle both old tuple format and new dict format
+            if isinstance(rule_item, dict):
+                rule = rule_item.get('text', '')
+                count = rule_item.get('count', 0)
+                source = rule_item.get('source', 'freeform')
+            else:
+                rule, count = rule_item[:2]
+                source = rule_item[2] if len(rule_item) > 2 else 'freeform'
+
+            source_badge = '<span class="source-badge template" title="From a repeated template/rubric">📋</span>' if source == 'template' else '<span class="source-badge freeform" title="Direct instruction">💬</span>'
             items.append(f'''
-                <div class="dna-rule">
-                    <span class="rule-icon">📌</span>
+                <div class="dna-rule {'template-source' if source == 'template' else 'freeform-source'}">
+                    {source_badge}
                     <span class="rule-text">{e(rule)}</span>
                     <span class="rule-count">{count}x</span>
                 </div>
             ''')
         house_rules_html = ''.join(items)
 
-    # Build role assignments HTML
+    # Build role assignments HTML (now with source badges)
     roles = dna.get('role_assignments', [])[:5]
     roles_html = ""
     if roles:
         items = []
-        for role, count in roles:
+        for role_item in roles:
+            # Handle both old tuple format and new dict format
+            if isinstance(role_item, dict):
+                role = role_item.get('text', '')
+                count = role_item.get('count', 0)
+                source = role_item.get('source', 'freeform')
+            else:
+                role, count = role_item[:2]
+                source = role_item[2] if len(role_item) > 2 else 'freeform'
+
+            source_badge = '<span class="source-badge template" title="From a repeated template/rubric">📋</span>' if source == 'template' else '<span class="source-badge freeform" title="Direct instruction">💬</span>'
             items.append(f'''
-                <div class="dna-role">
+                <div class="dna-role {'template-source' if source == 'template' else 'freeform-source'}">
+                    {source_badge}
                     <span class="role-prefix">You are a</span>
                     <span class="role-text">{e(role)}</span>
                     <span class="role-count">{count}x</span>
@@ -3684,7 +3705,7 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 <!-- House Rules -->
                 <div class="dna-card">
                     <div class="dna-card-title">📋 Your House Rules</div>
-                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly</div>
+                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly <span style="opacity: 0.6; margin-left: 0.5rem;">💬 direct · 📋 template</span></div>
                     <div class="dna-list">
                         {house_rules_html if house_rules_html else '<div class="dna-empty">Not enough data yet</div>'}
                     </div>
@@ -3695,7 +3716,7 @@ def generate_prompt_dna_html(dna: dict) -> str:
             {f"""
             <div class="dna-card" style="margin-top: 1.5rem;">
                 <div class="dna-card-title">🎭 Roles You Summon</div>
-                <div class="dna-card-subtitle">Your most common role assignments</div>
+                <div class="dna-card-subtitle">Your most common role assignments <span style="opacity: 0.6; margin-left: 0.5rem;">💬 direct · 📋 template</span></div>
                 <div class="dna-list">
                     {roles_html}
                 </div>
@@ -3832,6 +3853,37 @@ def generate_prompt_dna_html(dna: dict) -> str:
             .role-prefix {{
                 color: rgba(255, 255, 255, 0.5);
                 font-size: 0.85rem;
+            }}
+
+            /* Source badges for template vs freeform */
+            .source-badge {{
+                font-size: 1rem;
+                cursor: help;
+                opacity: 0.8;
+                transition: opacity 0.2s;
+            }}
+
+            .source-badge:hover {{
+                opacity: 1;
+            }}
+
+            .source-badge.template {{
+                filter: grayscale(0.3);
+            }}
+
+            .template-source {{
+                opacity: 0.7;
+                border-left: 2px solid rgba(255, 149, 0, 0.5);
+                padding-left: 0.75rem;
+            }}
+
+            .template-source:hover {{
+                opacity: 1;
+            }}
+
+            .freeform-source {{
+                border-left: 2px solid var(--neon-cyan);
+                padding-left: 0.75rem;
             }}
 
             .tech-tags {{
