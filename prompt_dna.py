@@ -644,10 +644,12 @@ def generate_claude_md(dna: PromptDNA) -> str:
             "*Based on your most common instructions:*",
             "",
         ])
-        for rule, count in dna.house_rules[:10]:
+        for item in dna.house_rules[:10]:
+            # Handle both 2-tuple and 3-tuple formats
+            rule = item[0] if isinstance(item, tuple) else item
             # Capitalize and clean up
             rule_clean = rule.strip()
-            if not rule_clean[0].isupper():
+            if rule_clean and not rule_clean[0].isupper():
                 rule_clean = rule_clean[0].upper() + rule_clean[1:]
             lines.append(f"- {rule_clean}")
         lines.append("")
@@ -844,12 +846,14 @@ if __name__ == '__main__':
         print(f"  \"{phrase}\" ({count}x)")
 
     print(f"\n=== House Rules ===")
-    for rule, count in dna.house_rules[:5]:
-        print(f"  {rule} ({count}x)")
+    for item in dna.house_rules[:5]:
+        rule, count, source = item[0], item[1], item[2] if len(item) > 2 else 'freeform'
+        print(f"  {rule} ({count}x) [{source}]")
 
     print(f"\n=== Role Assignments ===")
-    for role, count in dna.role_assignments[:5]:
-        print(f"  You are a {role} ({count}x)")
+    for item in dna.role_assignments[:5]:
+        role, count, source = item[0], item[1], item[2] if len(item) > 2 else 'freeform'
+        print(f"  You are a {role} ({count}x) [{source}]")
 
     print(f"\n=== Tech Stack ===")
     for tech, count in list(dna.tech_mentions.items())[:5]:
