@@ -3613,12 +3613,17 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 rule, count = rule_item[:2]
                 source = rule_item[2] if len(rule_item) > 2 else 'freeform'
 
-            source_badge = '<span class="source-badge template" title="From a repeated template/rubric">📋</span>' if source == 'template' else '<span class="source-badge freeform" title="Direct instruction">💬</span>'
+            if source == 'template':
+                source_badge = '<span class="source-badge template" role="img" aria-label="From template" title="From a repeated template or evaluation rubric" tabindex="0">📋</span>'
+                sr_label = ' (from template)'
+            else:
+                source_badge = '<span class="source-badge freeform" role="img" aria-label="Direct instruction" title="Direct instruction you typed" tabindex="0">💬</span>'
+                sr_label = ' (direct instruction)'
             items.append(f'''
-                <div class="dna-rule {'template-source' if source == 'template' else 'freeform-source'}">
+                <div class="dna-rule {'template-source' if source == 'template' else 'freeform-source'}" role="listitem">
                     {source_badge}
-                    <span class="rule-text">{e(rule)}</span>
-                    <span class="rule-count">{count}x</span>
+                    <span class="rule-text">{e(rule)}<span class="sr-only">{sr_label}</span></span>
+                    <span class="rule-count" aria-label="{count} occurrences">{count}x</span>
                 </div>
             ''')
         house_rules_html = ''.join(items)
@@ -3638,13 +3643,18 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 role, count = role_item[:2]
                 source = role_item[2] if len(role_item) > 2 else 'freeform'
 
-            source_badge = '<span class="source-badge template" title="From a repeated template/rubric">📋</span>' if source == 'template' else '<span class="source-badge freeform" title="Direct instruction">💬</span>'
+            if source == 'template':
+                source_badge = '<span class="source-badge template" role="img" aria-label="From template" title="From a repeated template or evaluation rubric" tabindex="0">📋</span>'
+                sr_label = ' (from template)'
+            else:
+                source_badge = '<span class="source-badge freeform" role="img" aria-label="Direct instruction" title="Role you assigned directly" tabindex="0">💬</span>'
+                sr_label = ' (direct assignment)'
             items.append(f'''
-                <div class="dna-role {'template-source' if source == 'template' else 'freeform-source'}">
+                <div class="dna-role {'template-source' if source == 'template' else 'freeform-source'}" role="listitem">
                     {source_badge}
-                    <span class="role-prefix">You are a</span>
-                    <span class="role-text">{e(role)}</span>
-                    <span class="role-count">{count}x</span>
+                    <span class="role-prefix" aria-hidden="true">You are a</span>
+                    <span class="role-text"><span class="sr-only">You are a </span>{e(role)}<span class="sr-only">{sr_label}</span></span>
+                    <span class="role-count" aria-label="{count} occurrences">{count}x</span>
                 </div>
             ''')
         roles_html = ''.join(items)
@@ -3703,20 +3713,20 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 </div>
 
                 <!-- House Rules -->
-                <div class="dna-card">
-                    <div class="dna-card-title">📋 Your House Rules</div>
-                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly <span style="opacity: 0.6; margin-left: 0.5rem;">💬 direct · 📋 template</span></div>
-                    <div class="dna-list">
-                        {house_rules_html if house_rules_html else '<div class="dna-empty">Not enough data yet</div>'}
+                <div class="dna-card" role="region" aria-labelledby="house-rules-title">
+                    <div class="dna-card-title" id="house-rules-title">📋 Your House Rules</div>
+                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly <span class="source-legend" aria-label="Legend: speech bubble means direct instruction, clipboard means from template"><span title="Direct instruction">💬</span> direct · <span title="From template/rubric">📋</span> template</span></div>
+                    <div class="dna-list" role="list" aria-label="House rules list">
+                        {house_rules_html if house_rules_html else '<div class="dna-empty" role="status">Not enough data yet</div>'}
                     </div>
                 </div>
             </div>
 
             <!-- Role Assignments -->
             {f"""
-            <div class="dna-card" style="margin-top: 1.5rem;">
-                <div class="dna-card-title">🎭 Roles You Summon</div>
-                <div class="dna-card-subtitle">Your most common role assignments <span style="opacity: 0.6; margin-left: 0.5rem;">💬 direct · 📋 template</span></div>
+            <div class="dna-card" style="margin-top: 1.5rem;" role="region" aria-labelledby="roles-title">
+                <div class="dna-card-title" id="roles-title">🎭 Roles You Summon</div>
+                <div class="dna-card-subtitle">Your most common role assignments <span class="source-legend" aria-label="Legend: speech bubble means direct, clipboard means from template"><span title="Direct assignment">💬</span> direct · <span title="From template/rubric">📋</span> template</span></div>
                 <div class="dna-list">
                     {roles_html}
                 </div>
@@ -3855,16 +3865,41 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 font-size: 0.85rem;
             }}
 
+            /* Screen reader only - WCAG compliant */
+            .sr-only {{
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }}
+
             /* Source badges for template vs freeform */
             .source-badge {{
                 font-size: 1rem;
                 cursor: help;
                 opacity: 0.8;
-                transition: opacity 0.2s;
+                transition: opacity 0.2s, transform 0.2s;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 1.5rem;
             }}
 
-            .source-badge:hover {{
+            .source-badge:hover,
+            .source-badge:focus {{
                 opacity: 1;
+                transform: scale(1.1);
+            }}
+
+            .source-badge:focus {{
+                outline: 2px solid var(--neon-cyan);
+                outline-offset: 2px;
+                border-radius: 4px;
             }}
 
             .source-badge.template {{
@@ -3873,17 +3908,58 @@ def generate_prompt_dna_html(dna: dict) -> str:
 
             .template-source {{
                 opacity: 0.7;
-                border-left: 2px solid rgba(255, 149, 0, 0.5);
+                border-left: 3px solid rgba(255, 149, 0, 0.6);
                 padding-left: 0.75rem;
+                transition: opacity 0.2s, background 0.2s;
             }}
 
-            .template-source:hover {{
+            .template-source:hover,
+            .template-source:focus-within {{
                 opacity: 1;
+                background: rgba(255, 149, 0, 0.05);
             }}
 
             .freeform-source {{
-                border-left: 2px solid var(--neon-cyan);
+                border-left: 3px solid var(--neon-cyan);
                 padding-left: 0.75rem;
+                transition: background 0.2s;
+            }}
+
+            .freeform-source:hover,
+            .freeform-source:focus-within {{
+                background: rgba(0, 245, 255, 0.05);
+            }}
+
+            /* Ensure sufficient contrast for badges */
+            .dna-rule, .dna-role {{
+                position: relative;
+            }}
+
+            /* Tooltip enhancement for keyboard users */
+            .source-badge[title] {{
+                position: relative;
+            }}
+
+            @media (prefers-reduced-motion: reduce) {{
+                .source-badge {{
+                    transition: none;
+                }}
+                .template-source,
+                .freeform-source {{
+                    transition: none;
+                }}
+            }}
+
+            /* Source legend in subtitles */
+            .source-legend {{
+                opacity: 0.6;
+                margin-left: 0.5rem;
+                font-size: 0.85em;
+                white-space: nowrap;
+            }}
+
+            .source-legend span {{
+                cursor: help;
             }}
 
             .tech-tags {{
