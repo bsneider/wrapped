@@ -1986,6 +1986,9 @@ def generate_html(data: dict) -> str:
         <!-- Prompt DNA Section -->
         {generate_prompt_dna_html(data.get('prompt_dna', {}))}
 
+        <!-- Proficiency Assessment Section -->
+        {generate_proficiency_html(data.get('proficiency', {}))}
+
         <!-- Top Projects Explorer -->
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
@@ -3739,6 +3742,435 @@ def generate_prompt_dna_html(dna: dict) -> str:
                 }});
             }}
         </script>
+    '''
+
+
+def generate_proficiency_html(proficiency: dict) -> str:
+    """Generate HTML for the Proficiency Assessment section."""
+    if not proficiency or not proficiency.get('overall_proficiency'):
+        return ""
+
+    # Escape helper
+    def e(s):
+        return html.escape(str(s)) if s else ""
+
+    overall = proficiency.get('overall_proficiency', 0)
+    level = proficiency.get('proficiency_level', 'unknown').upper()
+
+    # Dimension scores
+    prompt_score = proficiency.get('prompt_engineering_score', 0)
+    context_score = proficiency.get('context_engineering_score', 0)
+    memory_score = proficiency.get('memory_engineering_score', 0)
+    tool_score = proficiency.get('tool_use_score', 0)
+
+    # Breakdowns
+    clarity = proficiency.get('prompt_clarity_score', 0)
+    specificity = proficiency.get('prompt_specificity_score', 0)
+    technique = proficiency.get('prompt_technique_score', 0)
+    iteration = proficiency.get('prompt_iteration_efficiency', 0)
+    gap_rate = proficiency.get('prompt_gap_rate', 0) * 100
+
+    context_eff = proficiency.get('context_efficiency_score', 0)
+    position = proficiency.get('context_position_awareness', 0)
+    compression = proficiency.get('context_compression_skill', 0)
+
+    continuity = proficiency.get('memory_continuity_score', 0)
+    isolation = proficiency.get('memory_isolation_score', 0)
+    redundancy = proficiency.get('memory_redundancy_score', 0)
+
+    discovery = proficiency.get('tool_discovery_score', 0)
+    composition = proficiency.get('tool_composition_score', 0)
+    parallelism = proficiency.get('tool_parallelism_score', 0)
+    recovery = proficiency.get('tool_recovery_score', 0)
+
+    # Insights
+    strength = e(proficiency.get('top_strength', ''))
+    strength_desc = e(proficiency.get('top_strength_description', ''))
+    weakness = e(proficiency.get('primary_weakness', ''))
+    weakness_desc = e(proficiency.get('primary_weakness_description', ''))
+    recommendations = proficiency.get('recommendations', [])
+
+    # Build recommendations HTML
+    recs_html = ""
+    if recommendations:
+        recs_items = [f'<li>{e(rec)}</li>' for rec in recommendations[:5]]
+        recs_html = f'''
+            <div class="prof-recs">
+                <div class="prof-recs-header">📈 Actionable Recommendations</div>
+                <div class="prof-recs-subtitle">Based on academic research</div>
+                <ul class="prof-recommendations">{"".join(recs_items)}</ul>
+            </div>
+        '''
+
+    # Level color
+    level_colors = {
+        'EXPERT': 'var(--neon-cyan)',
+        'ADVANCED': 'var(--neon-purple)',
+        'INTERMEDIATE': 'var(--neon-pink)',
+        'NOVICE': 'rgba(255,255,255,0.5)',
+    }
+    level_color = level_colors.get(level, 'var(--neon-purple)')
+
+    return f'''
+        <!-- Proficiency Assessment Section -->
+        <section class="chart-section proficiency-section">
+            <div class="chart-title"><span>📊</span> Your Prompting Proficiency</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Based on 25+ academic papers on prompt engineering effectiveness
+            </p>
+
+            <!-- Overall Score -->
+            <div class="prof-overall">
+                <div class="prof-overall-score" style="--level-color: {level_color};">
+                    <div class="prof-score-ring">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="{level_color}" stroke-width="8"
+                                stroke-dasharray="{overall * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="prof-score-value">{overall}</div>
+                    </div>
+                    <div class="prof-level" style="color: {level_color};">{level}</div>
+                </div>
+            </div>
+
+            <!-- Four Dimensions -->
+            <div class="prof-dimensions">
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">✍️</span>
+                        <span class="prof-dim-name">Prompt Engineering</span>
+                        <span class="prof-dim-score">{prompt_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {prompt_score}%; background: var(--neon-cyan);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Clarity: {clarity}</span>
+                        <span>Specificity: {specificity}</span>
+                        <span>Technique: {technique}</span>
+                        <span>Iteration: {iteration}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">📦</span>
+                        <span class="prof-dim-name">Context Engineering</span>
+                        <span class="prof-dim-score">{context_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {context_score}%; background: var(--neon-purple);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Efficiency: {context_eff}</span>
+                        <span>Position: {position}</span>
+                        <span>Compression: {compression}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">🧠</span>
+                        <span class="prof-dim-name">Memory Engineering</span>
+                        <span class="prof-dim-score">{memory_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {memory_score}%; background: var(--neon-pink);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Continuity: {continuity}</span>
+                        <span>Isolation: {isolation}</span>
+                        <span>Low Redundancy: {redundancy}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">🛠️</span>
+                        <span class="prof-dim-name">Tool Use</span>
+                        <span class="prof-dim-score">{tool_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {tool_score}%; background: var(--neon-green);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Discovery: {discovery}</span>
+                        <span>Composition: {composition}</span>
+                        <span>Parallelism: {parallelism}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gap Rate Indicator -->
+            <div class="prof-gap-rate">
+                <div class="prof-gap-header">
+                    <span>Knowledge Gap Rate</span>
+                    <span class="prof-gap-value" style="color: {'var(--neon-green)' if gap_rate < 20 else 'var(--neon-pink)' if gap_rate > 40 else 'var(--neon-cyan)'};">
+                        {gap_rate:.0f}%
+                    </span>
+                </div>
+                <div class="prof-gap-bar">
+                    <div class="prof-gap-fill" style="width: {min(100, gap_rate)}%; background: {'var(--neon-green)' if gap_rate < 20 else 'var(--neon-pink)' if gap_rate > 40 else 'var(--neon-cyan)'};"></div>
+                </div>
+                <div class="prof-gap-labels">
+                    <span>Expert (&lt;15%)</span>
+                    <span>Average (20-40%)</span>
+                    <span>Needs Work (&gt;50%)</span>
+                </div>
+            </div>
+
+            <!-- Strengths & Weaknesses -->
+            <div class="prof-insights">
+                <div class="prof-insight strength">
+                    <div class="prof-insight-header">💪 Top Strength</div>
+                    <div class="prof-insight-title">{strength}</div>
+                    <div class="prof-insight-desc">{strength_desc}</div>
+                </div>
+                <div class="prof-insight weakness">
+                    <div class="prof-insight-header">🎯 Biggest Opportunity</div>
+                    <div class="prof-insight-title">{weakness}</div>
+                    <div class="prof-insight-desc">{weakness_desc}</div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            {recs_html}
+        </section>
+
+        <style>
+            .proficiency-section {{
+                background: linear-gradient(180deg, rgba(0, 245, 255, 0.05) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .prof-overall {{
+                display: flex;
+                justify-content: center;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-overall-score {{
+                text-align: center;
+            }}
+
+            .prof-score-ring {{
+                width: 150px;
+                height: 150px;
+                position: relative;
+            }}
+
+            .prof-score-ring svg {{
+                width: 100%;
+                height: 100%;
+                transform: rotate(-90deg);
+            }}
+
+            .prof-score-value {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Orbitron', monospace;
+                font-size: 2.5rem;
+                font-weight: bold;
+                color: white;
+            }}
+
+            .prof-level {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1rem;
+                margin-top: 0.5rem;
+                letter-spacing: 2px;
+            }}
+
+            .prof-dimensions {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-dimension {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+
+            .prof-dim-header {{
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.75rem;
+            }}
+
+            .prof-dim-icon {{
+                font-size: 1.25rem;
+            }}
+
+            .prof-dim-name {{
+                flex: 1;
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.9);
+            }}
+
+            .prof-dim-score {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.25rem;
+                font-weight: bold;
+            }}
+
+            .prof-dim-bar {{
+                height: 6px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 3px;
+                overflow: hidden;
+                margin-bottom: 0.75rem;
+            }}
+
+            .prof-dim-fill {{
+                height: 100%;
+                border-radius: 3px;
+                transition: width 0.5s ease;
+            }}
+
+            .prof-dim-details {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.5);
+            }}
+
+            .prof-dim-details span {{
+                background: rgba(255, 255, 255, 0.05);
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+            }}
+
+            .prof-gap-rate {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+                margin-bottom: 2rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+
+            .prof-gap-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.75rem;
+                font-size: 0.95rem;
+            }}
+
+            .prof-gap-value {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.25rem;
+                font-weight: bold;
+            }}
+
+            .prof-gap-bar {{
+                height: 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                overflow: hidden;
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-gap-fill {{
+                height: 100%;
+                border-radius: 4px;
+            }}
+
+            .prof-gap-labels {{
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.7rem;
+                color: rgba(255, 255, 255, 0.4);
+            }}
+
+            .prof-insights {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-insight {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+            }}
+
+            .prof-insight.strength {{
+                border: 1px solid rgba(0, 245, 255, 0.3);
+            }}
+
+            .prof-insight.weakness {{
+                border: 1px solid rgba(255, 0, 110, 0.3);
+            }}
+
+            .prof-insight-header {{
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-insight-title {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: white;
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-insight-desc {{
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.7);
+                line-height: 1.4;
+            }}
+
+            .prof-recs {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.5rem;
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .prof-recs-header {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: var(--neon-purple);
+                margin-bottom: 0.25rem;
+            }}
+
+            .prof-recs-subtitle {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 1rem;
+            }}
+
+            .prof-recommendations {{
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }}
+
+            .prof-recommendations li {{
+                padding: 0.75rem;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.85);
+                border-left: 3px solid var(--neon-purple);
+            }}
+
+            .prof-recommendations li:last-child {{
+                margin-bottom: 0;
+            }}
+        </style>
     '''
 
 

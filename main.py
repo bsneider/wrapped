@@ -224,6 +224,32 @@ Easter Eggs:
         if not args.quiet:
             print(f"⚠️  Prompt DNA analysis failed: {e}", file=sys.stderr)
 
+    # Run Proficiency Analysis (research-backed 4-dimension scoring)
+    try:
+        from proficiency_analyzer import analyze_proficiency, proficiency_to_dict
+
+        if not args.quiet:
+            print("📊 Analyzing prompting proficiency...", file=sys.stderr)
+
+        # Pass tool data for tool use analysis
+        tool_data = {'tool_frequency': json_data.get('tool_frequency', {})}
+        proficiency = analyze_proficiency(claude_dir, tool_data)
+        proficiency_data = proficiency_to_dict(proficiency)
+
+        # Add to output
+        json_data['proficiency'] = proficiency_data
+
+        if not args.quiet:
+            print(f"✅ Overall Proficiency: {proficiency.overall_proficiency}/100 ({proficiency.proficiency_level})", file=sys.stderr)
+            print(f"   Prompt: {proficiency.prompt_engineering_score} | Context: {proficiency.context_engineering_score} | Memory: {proficiency.memory_engineering_score} | Tools: {proficiency.tool_use_score}", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  proficiency_analyzer.py not found, skipping proficiency analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Proficiency analysis failed: {e}", file=sys.stderr)
+
     # Run git repository analysis
     try:
         from git_analyzer import analyze_all_repos, correlate_repos_to_projects
