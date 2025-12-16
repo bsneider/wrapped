@@ -94,7 +94,13 @@ Easter Eggs:
         action='store_true',
         help='Do not automatically open the report in a browser'
     )
-    
+
+    parser.add_argument(
+        '--no-telemetry',
+        action='store_true',
+        help='Do not send anonymous usage metrics'
+    )
+
     args = parser.parse_args()
     
     # Print banner
@@ -340,6 +346,107 @@ Easter Eggs:
             import traceback
             traceback.print_exc(file=sys.stderr)
 
+    # Send telemetry (opt-out with --no-telemetry)
+    if not getattr(args, 'no_telemetry', False):
+        try:
+            import urllib.request
+            import urllib.error
+            import hashlib
+            import platform
+
+            if not args.quiet:
+                print("📡 Syncing anonymous metrics...", file=sys.stderr)
+
+            # Generate privacy-safe fingerprint
+            fp_data = f"{platform.node()}|{platform.system()}|{platform.machine()}"
+            fingerprint = hashlib.sha256(fp_data.encode()).hexdigest()[:16]
+
+            # Build telemetry payload from json_data
+            tool_freq = json_data.get('tool_frequency', {})
+            model_freq = json_data.get('model_frequency', {})
+            total_model_uses = sum(model_freq.values()) or 1
+
+            # Calculate model percentages
+            opus_count = sum(v for k, v in model_freq.items() if 'opus' in k.lower())
+            sonnet_count = sum(v for k, v in model_freq.items() if 'sonnet' in k.lower())
+            haiku_count = sum(v for k, v in model_freq.items() if 'haiku' in k.lower())
+
+            # Get prompt DNA data if available
+            prompt_dna = json_data.get('prompt_dna', {})
+
+            telemetry_payload = {
+                'fingerprint': fingerprint,
+                'client_version': '1.0.0',
+                'event_type': 'wrapped_generated',
+
+                # Core metrics
+                'total_sessions': json_data.get('total_sessions'),
+                'total_messages': json_data.get('total_messages'),
+                'total_tokens': (json_data.get('total_input_tokens', 0) or 0) + (json_data.get('total_output_tokens', 0) or 0),
+                'total_cost_usd': json_data.get('total_cost_usd'),
+
+                # Usage patterns
+                'peak_hour': json_data.get('peak_hour'),
+                'peak_day': json_data.get('peak_day'),
+                'weekend_ratio': json_data.get('weekend_ratio'),
+                'longest_streak_days': json_data.get('longest_streak_days'),
+
+                # Model distribution
+                'model_opus_pct': round(opus_count * 100 / total_model_uses, 1) if total_model_uses else None,
+                'model_sonnet_pct': round(sonnet_count * 100 / total_model_uses, 1) if total_model_uses else None,
+                'model_haiku_pct': round(haiku_count * 100 / total_model_uses, 1) if total_model_uses else None,
+
+                # Proficiency
+                'cache_hit_rate': json_data.get('cache_efficiency_ratio'),
+
+                # Prompt DNA
+                'total_prompts_analyzed': prompt_dna.get('total_prompts_analyzed'),
+                'avg_prompt_length': prompt_dna.get('avg_prompt_length_words'),
+                'prompt_personality': prompt_dna.get('prompt_personality'),
+                'communication_style': prompt_dna.get('prompt_style'),
+                'top_catchphrases_count': len(prompt_dna.get('top_catchphrases', [])),
+                'house_rules_count': len(prompt_dna.get('house_rules', [])),
+
+                # Tool usage
+                'tool_read_count': tool_freq.get('Read', 0),
+                'tool_edit_count': tool_freq.get('Edit', 0),
+                'tool_bash_count': tool_freq.get('Bash', 0),
+                'tool_write_count': tool_freq.get('Write', 0),
+                'tool_grep_count': tool_freq.get('Grep', 0),
+                'tool_glob_count': tool_freq.get('Glob', 0),
+                'tool_task_count': tool_freq.get('Task', 0),
+
+                # Personality
+                'developer_personality': json_data.get('developer_personality'),
+                'coding_city': json_data.get('coding_city'),
+
+                # Git metrics
+                'git_repos_analyzed': json_data.get('git_repos_analyzed'),
+                'git_total_commits': json_data.get('git_total_commits'),
+                'git_user_commits': json_data.get('git_user_commits'),
+                'git_total_lines_written': json_data.get('git_total_lines_written'),
+
+                # Projects
+                'projects_count': len(json_data.get('top_projects', [])),
+                'top_project_sessions': json_data.get('top_projects', [{}])[0].get('sessions') if json_data.get('top_projects') else None,
+            }
+
+            # Send to telemetry endpoint
+            req = urllib.request.Request(
+                'https://claude-wrapped-telemetry.pierretokns.workers.dev/api/wrapped',
+                data=json.dumps(telemetry_payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 201:
+                    if not args.quiet:
+                        print("✅ Metrics synced (anonymous)", file=sys.stderr)
+
+        except Exception as e:
+            if not args.quiet:
+                print(f"⚠️  Metrics sync skipped: {e}", file=sys.stderr)
+
     # Generate output
     if args.json:
         output = json.dumps(json_data, indent=2, default=str)
@@ -364,13 +471,50 @@ Easter Eggs:
             if not args.quiet:
                 print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
 
-        # Open in browser unless --no-open is specified
+        # Serve via HTTP and open in browser (unless --no-open)
         if not args.json and not args.no_open:
             import webbrowser
-            file_url = f"file://{output_path}"
+            import http.server
+            import socketserver
+            import threading
+
+            # Find an available port
+            port = 8765
+            for p in range(8765, 8800):
+                try:
+                    with socketserver.TCPServer(("", p), None) as test:
+                        port = p
+                        break
+                except OSError:
+                    continue
+
+            # Serve from the output directory
+            serve_dir = output_path.parent
+            serve_file = output_path.name
+
+            class QuietHandler(http.server.SimpleHTTPRequestHandler):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, directory=str(serve_dir), **kwargs)
+                def log_message(self, format, *args):
+                    pass  # Suppress logging
+
+            server = socketserver.TCPServer(("", port), QuietHandler)
+            server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            server_thread.start()
+
+            url = f"http://localhost:{port}/{serve_file}"
             if not args.quiet:
-                print(f"🌐 Opening in browser...", file=sys.stderr)
-            webbrowser.open(file_url)
+                print(f"🌐 Serving at {url}", file=sys.stderr)
+                print(f"   (Ctrl+C to stop server)", file=sys.stderr)
+            webbrowser.open(url)
+
+            # Keep server running until interrupted
+            try:
+                server_thread.join()
+            except KeyboardInterrupt:
+                if not args.quiet:
+                    print(f"\n👋 Server stopped", file=sys.stderr)
+                server.shutdown()
     else:
         print(output)
         # Also copy to opus45.html in the project directory when outputting to stdout
@@ -379,7 +523,7 @@ Easter Eggs:
             with open(opus45_path, 'w', encoding='utf-8') as f:
                 f.write(output)
             print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
-    
+
     return 0
 
 
