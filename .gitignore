@@ -4,3 +4,13 @@ __pycache__
 .DS_Store
 opus45.html
 opus45-fixed.html
+
+# Cloudflare infrastructure (excluded from PyPI package)
+# Uncomment the line below when publishing to PyPI
+cloudflare/
+
+# Cloudflare sensitive files (always ignore)
+cloudflare/.dev.vars
+cloudflare/wrangler.toml
+cloudflare/.wrangler/
+cloudflare/node_modules/

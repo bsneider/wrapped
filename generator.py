@@ -2896,6 +2896,431 @@ def generate_html(data: dict) -> str:
                 }}
             }});
         }})();
+
+        // ============================================
+        // Feedback Modal & Telemetry Client
+        // ============================================
+        (function() {{
+            // Telemetry API endpoint
+            const API_BASE = 'https://claude-wrapped-telemetry.pierretokns.workers.dev';
+            const CLIENT_VERSION = '1.0.0';
+
+            // Generate a simple fingerprint (privacy-safe, rotates monthly)
+            function generateFingerprint() {{
+                const nav = window.navigator;
+                const screen = window.screen;
+                const data = [
+                    nav.userAgent,
+                    nav.language,
+                    screen.width + 'x' + screen.height,
+                    screen.colorDepth,
+                    new Date().getTimezoneOffset(),
+                    nav.hardwareConcurrency || 'unknown'
+                ].join('|');
+                // Simple hash
+                let hash = 0;
+                for (let i = 0; i < data.length; i++) {{
+                    const char = data.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }}
+                return 'web-' + Math.abs(hash).toString(36);
+            }}
+
+            const fingerprint = generateFingerprint();
+
+            // Create feedback modal HTML
+            const modalHTML = `
+                <div id="feedback-modal" class="feedback-modal" role="dialog" aria-labelledby="feedback-title" aria-hidden="true">
+                    <div class="feedback-backdrop"></div>
+                    <div class="feedback-content">
+                        <button class="feedback-close" aria-label="Close feedback">&times;</button>
+                        <h3 id="feedback-title" class="feedback-title">Share Your Thoughts</h3>
+                        <p class="feedback-subtitle">Help us make Claude Wrapped even better!</p>
+
+                        <div class="feedback-rating">
+                            <span class="rating-label">How was your experience?</span>
+                            <div class="rating-stars" role="radiogroup" aria-label="Rating">
+                                <button class="star" data-rating="1" aria-label="1 star">★</button>
+                                <button class="star" data-rating="2" aria-label="2 stars">★</button>
+                                <button class="star" data-rating="3" aria-label="3 stars">★</button>
+                                <button class="star" data-rating="4" aria-label="4 stars">★</button>
+                                <button class="star" data-rating="5" aria-label="5 stars">★</button>
+                            </div>
+                        </div>
+
+                        <div class="feedback-type-select">
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="improvement" checked>
+                                <span class="type-icon">💡</span> Suggestion
+                            </label>
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="bug">
+                                <span class="type-icon">🐛</span> Bug
+                            </label>
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="praise">
+                                <span class="type-icon">💜</span> Praise
+                            </label>
+                        </div>
+
+                        <textarea
+                            id="feedback-message"
+                            class="feedback-textarea"
+                            placeholder="What would make this better? What surprised you? Any bugs?"
+                            maxlength="2000"
+                            rows="4"
+                        ></textarea>
+
+                        <div class="feedback-actions">
+                            <button class="feedback-skip">Maybe later</button>
+                            <button class="feedback-submit">Send Feedback</button>
+                        </div>
+
+                        <p class="feedback-privacy">Your feedback is anonymous. No personal data is collected.</p>
+                    </div>
+                </div>
+            `;
+
+            // Create and inject modal styles
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                .feedback-modal {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s, visibility 0.3s;
+                }}
+                .feedback-modal.visible {{
+                    opacity: 1;
+                    visibility: visible;
+                }}
+                .feedback-backdrop {{
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    backdrop-filter: blur(4px);
+                }}
+                .feedback-content {{
+                    position: relative;
+                    background: linear-gradient(135deg, rgba(20, 20, 35, 0.95), rgba(30, 20, 50, 0.95));
+                    border: 1px solid rgba(139, 92, 246, 0.3);
+                    border-radius: 20px;
+                    padding: 2rem;
+                    max-width: 480px;
+                    width: 90%;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.2);
+                    transform: translateY(20px);
+                    transition: transform 0.3s;
+                }}
+                .feedback-modal.visible .feedback-content {{
+                    transform: translateY(0);
+                }}
+                .feedback-close {{
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: none;
+                    border: none;
+                    color: rgba(255, 255, 255, 0.5);
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    transition: color 0.2s;
+                }}
+                .feedback-close:hover {{
+                    color: #ff006e;
+                }}
+                .feedback-title {{
+                    font-family: 'Orbitron', monospace;
+                    font-size: 1.5rem;
+                    color: #fff;
+                    margin-bottom: 0.5rem;
+                    text-align: center;
+                }}
+                .feedback-subtitle {{
+                    color: rgba(255, 255, 255, 0.6);
+                    text-align: center;
+                    margin-bottom: 1.5rem;
+                }}
+                .feedback-rating {{
+                    text-align: center;
+                    margin-bottom: 1.5rem;
+                }}
+                .rating-label {{
+                    display: block;
+                    color: rgba(255, 255, 255, 0.7);
+                    margin-bottom: 0.5rem;
+                    font-size: 0.9rem;
+                }}
+                .rating-stars {{
+                    display: flex;
+                    justify-content: center;
+                    gap: 0.5rem;
+                }}
+                .rating-stars .star {{
+                    background: none;
+                    border: none;
+                    font-size: 2rem;
+                    color: rgba(255, 255, 255, 0.2);
+                    cursor: pointer;
+                    transition: color 0.2s, transform 0.2s;
+                }}
+                .rating-stars .star:hover,
+                .rating-stars .star.active {{
+                    color: #ff9500;
+                    transform: scale(1.2);
+                }}
+                .rating-stars .star.hovered {{
+                    color: #ff9500;
+                }}
+                .feedback-type-select {{
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }}
+                .type-option {{
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    padding: 0.5rem 1rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-size: 0.9rem;
+                }}
+                .type-option:has(input:checked) {{
+                    background: rgba(139, 92, 246, 0.2);
+                    border-color: rgba(139, 92, 246, 0.5);
+                }}
+                .type-option input {{
+                    display: none;
+                }}
+                .type-icon {{
+                    font-size: 1rem;
+                }}
+                .feedback-textarea {{
+                    width: 100%;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    padding: 1rem;
+                    color: #fff;
+                    font-family: inherit;
+                    font-size: 1rem;
+                    resize: vertical;
+                    min-height: 100px;
+                    margin-bottom: 1rem;
+                }}
+                .feedback-textarea:focus {{
+                    outline: none;
+                    border-color: rgba(139, 92, 246, 0.5);
+                }}
+                .feedback-textarea::placeholder {{
+                    color: rgba(255, 255, 255, 0.3);
+                }}
+                .feedback-actions {{
+                    display: flex;
+                    gap: 1rem;
+                    justify-content: flex-end;
+                }}
+                .feedback-skip {{
+                    background: none;
+                    border: none;
+                    color: rgba(255, 255, 255, 0.5);
+                    cursor: pointer;
+                    padding: 0.75rem 1.5rem;
+                    font-size: 1rem;
+                }}
+                .feedback-skip:hover {{
+                    color: rgba(255, 255, 255, 0.8);
+                }}
+                .feedback-submit {{
+                    background: linear-gradient(135deg, #8b5cf6, #ff006e);
+                    border: none;
+                    color: #fff;
+                    padding: 0.75rem 1.5rem;
+                    border-radius: 25px;
+                    font-family: 'Orbitron', monospace;
+                    font-size: 0.9rem;
+                    cursor: pointer;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }}
+                .feedback-submit:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4);
+                }}
+                .feedback-submit:disabled {{
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    transform: none;
+                }}
+                .feedback-privacy {{
+                    text-align: center;
+                    font-size: 0.75rem;
+                    color: rgba(255, 255, 255, 0.3);
+                    margin-top: 1rem;
+                }}
+                .feedback-success {{
+                    text-align: center;
+                    padding: 2rem;
+                }}
+                .feedback-success-icon {{
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                }}
+                .feedback-success-text {{
+                    color: #39ff14;
+                    font-size: 1.2rem;
+                }}
+            `;
+            document.head.appendChild(styleEl);
+
+            // Inject modal into page
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
+
+            const modal = document.getElementById('feedback-modal');
+            const backdrop = modal.querySelector('.feedback-backdrop');
+            const closeBtn = modal.querySelector('.feedback-close');
+            const skipBtn = modal.querySelector('.feedback-skip');
+            const submitBtn = modal.querySelector('.feedback-submit');
+            const textarea = document.getElementById('feedback-message');
+            const stars = modal.querySelectorAll('.star');
+
+            let selectedRating = 0;
+            let hasShownModal = false;
+
+            // Star rating interaction
+            stars.forEach((star, index) => {{
+                star.addEventListener('mouseenter', () => {{
+                    stars.forEach((s, i) => {{
+                        s.classList.toggle('hovered', i <= index);
+                    }});
+                }});
+                star.addEventListener('mouseleave', () => {{
+                    stars.forEach(s => s.classList.remove('hovered'));
+                }});
+                star.addEventListener('click', () => {{
+                    selectedRating = index + 1;
+                    stars.forEach((s, i) => {{
+                        s.classList.toggle('active', i < selectedRating);
+                    }});
+                }});
+            }});
+
+            // Show modal
+            function showModal() {{
+                if (hasShownModal) return;
+                if (localStorage.getItem('claude-wrapped-feedback-dismissed')) return;
+                hasShownModal = true;
+                modal.classList.add('visible');
+                modal.setAttribute('aria-hidden', 'false');
+            }}
+
+            // Hide modal
+            function hideModal() {{
+                modal.classList.remove('visible');
+                modal.setAttribute('aria-hidden', 'true');
+            }}
+
+            // Dismiss and don't show again for this session
+            function dismissModal() {{
+                hideModal();
+                localStorage.setItem('claude-wrapped-feedback-dismissed', 'true');
+            }}
+
+            // Submit feedback
+            async function submitFeedback() {{
+                const message = textarea.value.trim();
+                const feedbackType = document.querySelector('input[name="feedback-type"]:checked')?.value || 'other';
+
+                if (!message && selectedRating === 0) {{
+                    textarea.focus();
+                    return;
+                }}
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+
+                try {{
+                    const response = await fetch(API_BASE + '/api/voice', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{
+                            fingerprint: fingerprint,
+                            feedback_type: feedbackType,
+                            message: message || '(rating only)',
+                            rating: selectedRating || null,
+                            page_section: 'wrapped_report',
+                            client_version: CLIENT_VERSION
+                        }})
+                    }});
+
+                    if (response.ok) {{
+                        // Show success state
+                        modal.querySelector('.feedback-content').innerHTML = `
+                            <div class="feedback-success">
+                                <div class="feedback-success-icon">💜</div>
+                                <div class="feedback-success-text">Thank you for your feedback!</div>
+                                <p style="color: rgba(255,255,255,0.5); margin-top: 1rem;">Your input helps make Claude Wrapped better.</p>
+                            </div>
+                        `;
+                        setTimeout(dismissModal, 2000);
+                    }} else {{
+                        throw new Error('Failed to submit');
+                    }}
+                }} catch (err) {{
+                    console.error('Feedback error:', err);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Feedback';
+                    // Still dismiss - don't annoy user
+                    dismissModal();
+                }}
+            }}
+
+            // Event listeners
+            closeBtn.addEventListener('click', dismissModal);
+            backdrop.addEventListener('click', dismissModal);
+            skipBtn.addEventListener('click', dismissModal);
+            submitBtn.addEventListener('click', submitFeedback);
+
+            // Show modal after 15 seconds of viewing
+            setTimeout(showModal, 15000);
+
+            // Also show if user scrolls to bottom
+            let scrollTriggered = false;
+            window.addEventListener('scroll', () => {{
+                if (scrollTriggered) return;
+                const scrollPercent = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+                if (scrollPercent > 0.85) {{
+                    scrollTriggered = true;
+                    setTimeout(showModal, 2000);
+                }}
+            }});
+
+            // Keyboard close
+            document.addEventListener('keydown', (e) => {{
+                if (e.key === 'Escape' && modal.classList.contains('visible')) {{
+                    dismissModal();
+                }}
+            }});
+        }})();
     </script>
 </body>
 </html>'''
