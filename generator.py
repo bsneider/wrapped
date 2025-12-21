@@ -1982,7 +1982,19 @@ def generate_html(data: dict) -> str:
                 </div>
             </div>
         </section>
-        
+
+        <!-- Community Percentile Rankings -->
+        {generate_percentile_html(data.get('community_benchmarks', {}))}
+
+        <!-- Achievements -->
+        {generate_achievements_html(data.get('achievements', []))}
+
+        <!-- Prompt DNA Section -->
+        {generate_prompt_dna_html(data.get('prompt_dna', {}))}
+
+        <!-- Proficiency Assessment Section -->
+        {generate_proficiency_html(data.get('proficiency', {}))}
+
         <!-- Top Projects Explorer -->
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
@@ -2893,11 +2905,1694 @@ def generate_html(data: dict) -> str:
                 }}
             }});
         }})();
+
+        // ============================================
+        // Feedback Modal & Telemetry Client
+        // ============================================
+        (function() {{
+            // Telemetry API endpoint
+            const API_BASE = 'https://claude-wrapped-telemetry.pierretokns.workers.dev';
+            const CLIENT_VERSION = '1.0.0';
+
+            // Generate a simple fingerprint (privacy-safe, rotates monthly)
+            function generateFingerprint() {{
+                const nav = window.navigator;
+                const screen = window.screen;
+                const data = [
+                    nav.userAgent,
+                    nav.language,
+                    screen.width + 'x' + screen.height,
+                    screen.colorDepth,
+                    new Date().getTimezoneOffset(),
+                    nav.hardwareConcurrency || 'unknown'
+                ].join('|');
+                // Simple hash
+                let hash = 0;
+                for (let i = 0; i < data.length; i++) {{
+                    const char = data.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }}
+                return 'web-' + Math.abs(hash).toString(36);
+            }}
+
+            const fingerprint = generateFingerprint();
+
+            // Create feedback modal HTML
+            const modalHTML = `
+                <div id="feedback-modal" class="feedback-modal" role="dialog" aria-labelledby="feedback-title" aria-hidden="true">
+                    <div class="feedback-backdrop"></div>
+                    <div class="feedback-content">
+                        <button class="feedback-close" aria-label="Close feedback">&times;</button>
+                        <h3 id="feedback-title" class="feedback-title">Share Your Thoughts</h3>
+                        <p class="feedback-subtitle">Help us make Claude Wrapped even better!</p>
+
+                        <div class="feedback-rating">
+                            <span class="rating-label">How was your experience?</span>
+                            <div class="rating-stars" role="radiogroup" aria-label="Rating">
+                                <button class="star" data-rating="1" aria-label="1 star">★</button>
+                                <button class="star" data-rating="2" aria-label="2 stars">★</button>
+                                <button class="star" data-rating="3" aria-label="3 stars">★</button>
+                                <button class="star" data-rating="4" aria-label="4 stars">★</button>
+                                <button class="star" data-rating="5" aria-label="5 stars">★</button>
+                            </div>
+                        </div>
+
+                        <div class="feedback-type-select">
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="improvement" checked>
+                                <span class="type-icon">💡</span> Suggestion
+                            </label>
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="bug">
+                                <span class="type-icon">🐛</span> Bug
+                            </label>
+                            <label class="type-option">
+                                <input type="radio" name="feedback-type" value="praise">
+                                <span class="type-icon">💜</span> Praise
+                            </label>
+                        </div>
+
+                        <textarea
+                            id="feedback-message"
+                            class="feedback-textarea"
+                            placeholder="What would make this better? What surprised you? Any bugs?"
+                            maxlength="2000"
+                            rows="4"
+                        ></textarea>
+
+                        <div class="feedback-actions">
+                            <button class="feedback-skip">Maybe later</button>
+                            <button class="feedback-submit">Send Feedback</button>
+                        </div>
+
+                        <p class="feedback-privacy">Your feedback is anonymous. No personal data is collected.</p>
+                    </div>
+                </div>
+            `;
+
+            // Create and inject modal styles
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                .feedback-modal {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s, visibility 0.3s;
+                }}
+                .feedback-modal.visible {{
+                    opacity: 1;
+                    visibility: visible;
+                }}
+                .feedback-backdrop {{
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    backdrop-filter: blur(4px);
+                }}
+                .feedback-content {{
+                    position: relative;
+                    background: linear-gradient(135deg, rgba(20, 20, 35, 0.95), rgba(30, 20, 50, 0.95));
+                    border: 1px solid rgba(139, 92, 246, 0.3);
+                    border-radius: 20px;
+                    padding: 2rem;
+                    max-width: 480px;
+                    width: 90%;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.2);
+                    transform: translateY(20px);
+                    transition: transform 0.3s;
+                }}
+                .feedback-modal.visible .feedback-content {{
+                    transform: translateY(0);
+                }}
+                .feedback-close {{
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: none;
+                    border: none;
+                    color: rgba(255, 255, 255, 0.5);
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    transition: color 0.2s;
+                }}
+                .feedback-close:hover {{
+                    color: #ff006e;
+                }}
+                .feedback-title {{
+                    font-family: 'Orbitron', monospace;
+                    font-size: 1.5rem;
+                    color: #fff;
+                    margin-bottom: 0.5rem;
+                    text-align: center;
+                }}
+                .feedback-subtitle {{
+                    color: rgba(255, 255, 255, 0.6);
+                    text-align: center;
+                    margin-bottom: 1.5rem;
+                }}
+                .feedback-rating {{
+                    text-align: center;
+                    margin-bottom: 1.5rem;
+                }}
+                .rating-label {{
+                    display: block;
+                    color: rgba(255, 255, 255, 0.7);
+                    margin-bottom: 0.5rem;
+                    font-size: 0.9rem;
+                }}
+                .rating-stars {{
+                    display: flex;
+                    justify-content: center;
+                    gap: 0.5rem;
+                }}
+                .rating-stars .star {{
+                    background: none;
+                    border: none;
+                    font-size: 2rem;
+                    color: rgba(255, 255, 255, 0.2);
+                    cursor: pointer;
+                    transition: color 0.2s, transform 0.2s;
+                }}
+                .rating-stars .star:hover,
+                .rating-stars .star.active {{
+                    color: #ff9500;
+                    transform: scale(1.2);
+                }}
+                .rating-stars .star.hovered {{
+                    color: #ff9500;
+                }}
+                .feedback-type-select {{
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }}
+                .type-option {{
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    padding: 0.5rem 1rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-size: 0.9rem;
+                }}
+                .type-option:has(input:checked) {{
+                    background: rgba(139, 92, 246, 0.2);
+                    border-color: rgba(139, 92, 246, 0.5);
+                }}
+                .type-option input {{
+                    display: none;
+                }}
+                .type-icon {{
+                    font-size: 1rem;
+                }}
+                .feedback-textarea {{
+                    width: 100%;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    padding: 1rem;
+                    color: #fff;
+                    font-family: inherit;
+                    font-size: 1rem;
+                    resize: vertical;
+                    min-height: 100px;
+                    margin-bottom: 1rem;
+                }}
+                .feedback-textarea:focus {{
+                    outline: none;
+                    border-color: rgba(139, 92, 246, 0.5);
+                }}
+                .feedback-textarea::placeholder {{
+                    color: rgba(255, 255, 255, 0.3);
+                }}
+                .feedback-actions {{
+                    display: flex;
+                    gap: 1rem;
+                    justify-content: flex-end;
+                }}
+                .feedback-skip {{
+                    background: none;
+                    border: none;
+                    color: rgba(255, 255, 255, 0.5);
+                    cursor: pointer;
+                    padding: 0.75rem 1.5rem;
+                    font-size: 1rem;
+                }}
+                .feedback-skip:hover {{
+                    color: rgba(255, 255, 255, 0.8);
+                }}
+                .feedback-submit {{
+                    background: linear-gradient(135deg, #8b5cf6, #ff006e);
+                    border: none;
+                    color: #fff;
+                    padding: 0.75rem 1.5rem;
+                    border-radius: 25px;
+                    font-family: 'Orbitron', monospace;
+                    font-size: 0.9rem;
+                    cursor: pointer;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }}
+                .feedback-submit:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4);
+                }}
+                .feedback-submit:disabled {{
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    transform: none;
+                }}
+                .feedback-privacy {{
+                    text-align: center;
+                    font-size: 0.75rem;
+                    color: rgba(255, 255, 255, 0.3);
+                    margin-top: 1rem;
+                }}
+                .feedback-success {{
+                    text-align: center;
+                    padding: 2rem;
+                }}
+                .feedback-success-icon {{
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                }}
+                .feedback-success-text {{
+                    color: #39ff14;
+                    font-size: 1.2rem;
+                }}
+            `;
+            document.head.appendChild(styleEl);
+
+            // Inject modal into page
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
+
+            const modal = document.getElementById('feedback-modal');
+            const backdrop = modal.querySelector('.feedback-backdrop');
+            const closeBtn = modal.querySelector('.feedback-close');
+            const skipBtn = modal.querySelector('.feedback-skip');
+            const submitBtn = modal.querySelector('.feedback-submit');
+            const textarea = document.getElementById('feedback-message');
+            const stars = modal.querySelectorAll('.star');
+
+            let selectedRating = 0;
+            let hasShownModal = false;
+
+            // Star rating interaction
+            stars.forEach((star, index) => {{
+                star.addEventListener('mouseenter', () => {{
+                    stars.forEach((s, i) => {{
+                        s.classList.toggle('hovered', i <= index);
+                    }});
+                }});
+                star.addEventListener('mouseleave', () => {{
+                    stars.forEach(s => s.classList.remove('hovered'));
+                }});
+                star.addEventListener('click', () => {{
+                    selectedRating = index + 1;
+                    stars.forEach((s, i) => {{
+                        s.classList.toggle('active', i < selectedRating);
+                    }});
+                }});
+            }});
+
+            // Show modal
+            function showModal() {{
+                if (hasShownModal) return;
+                if (localStorage.getItem('claude-wrapped-feedback-dismissed')) return;
+                hasShownModal = true;
+                modal.classList.add('visible');
+                modal.setAttribute('aria-hidden', 'false');
+            }}
+
+            // Hide modal
+            function hideModal() {{
+                modal.classList.remove('visible');
+                modal.setAttribute('aria-hidden', 'true');
+            }}
+
+            // Dismiss and don't show again for this session
+            function dismissModal() {{
+                hideModal();
+                localStorage.setItem('claude-wrapped-feedback-dismissed', 'true');
+            }}
+
+            // Submit feedback
+            async function submitFeedback() {{
+                const message = textarea.value.trim();
+                const feedbackType = document.querySelector('input[name="feedback-type"]:checked')?.value || 'other';
+
+                if (!message && selectedRating === 0) {{
+                    textarea.focus();
+                    return;
+                }}
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+
+                try {{
+                    const response = await fetch(API_BASE + '/api/voice', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{
+                            fingerprint: fingerprint,
+                            feedback_type: feedbackType,
+                            message: message || '(rating only)',
+                            rating: selectedRating || null,
+                            page_section: 'wrapped_report',
+                            client_version: CLIENT_VERSION
+                        }})
+                    }});
+
+                    if (response.ok) {{
+                        // Show success state
+                        modal.querySelector('.feedback-content').innerHTML = `
+                            <div class="feedback-success">
+                                <div class="feedback-success-icon">💜</div>
+                                <div class="feedback-success-text">Thank you for your feedback!</div>
+                                <p style="color: rgba(255,255,255,0.5); margin-top: 1rem;">Your input helps make Claude Wrapped better.</p>
+                            </div>
+                        `;
+                        setTimeout(dismissModal, 2000);
+                    }} else {{
+                        throw new Error('Failed to submit');
+                    }}
+                }} catch (err) {{
+                    console.error('Feedback error:', err);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Feedback';
+                    // Still dismiss - don't annoy user
+                    dismissModal();
+                }}
+            }}
+
+            // Event listeners
+            closeBtn.addEventListener('click', dismissModal);
+            backdrop.addEventListener('click', dismissModal);
+            skipBtn.addEventListener('click', dismissModal);
+            submitBtn.addEventListener('click', submitFeedback);
+
+            // Show modal after 15 seconds of viewing
+            setTimeout(showModal, 15000);
+
+            // Also show if user scrolls to bottom
+            let scrollTriggered = false;
+            window.addEventListener('scroll', () => {{
+                if (scrollTriggered) return;
+                const scrollPercent = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+                if (scrollPercent > 0.85) {{
+                    scrollTriggered = true;
+                    setTimeout(showModal, 2000);
+                }}
+            }});
+
+            // Keyboard close
+            document.addEventListener('keydown', (e) => {{
+                if (e.key === 'Escape' && modal.classList.contains('visible')) {{
+                    dismissModal();
+                }}
+            }});
+        }})();
     </script>
 </body>
 </html>'''
     
     return html_content
+
+
+def generate_percentile_html(benchmarks: dict) -> str:
+    """Generate HTML for community percentile rankings."""
+    if not benchmarks or not benchmarks.get('total_users'):
+        return ""
+
+    total_users = benchmarks.get('total_users', 0)
+    session_percentile = benchmarks.get('session_percentile', 50)
+    cost_percentile = benchmarks.get('cost_percentile', 50)
+    avg_sessions = benchmarks.get('avg_sessions', 0)
+    avg_cost = benchmarks.get('avg_cost', 0)
+
+    session_rank = 100 - session_percentile
+    cost_rank = 100 - cost_percentile
+
+    return f'''
+        <!-- Community Rankings Section -->
+        <section class="chart-section percentile-section">
+            <div class="chart-title"><span>🌍</span> Community Rankings</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Compared to {total_users:,} Claude Wrapped users
+            </p>
+
+            <div class="percentile-grid">
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {session_percentile}; --ring-color: var(--neon-cyan);">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--neon-cyan)" stroke-width="6"
+                                stroke-dasharray="{session_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {session_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Sessions</div>
+                    <div class="percentile-detail">Avg: {avg_sessions:,}</div>
+                </div>
+
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {cost_percentile}; --ring-color: var(--neon-pink);">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--neon-pink)" stroke-width="6"
+                                stroke-dasharray="{cost_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {cost_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Investment</div>
+                    <div class="percentile-detail">Avg: ${avg_cost:.2f}</div>
+                </div>
+            </div>
+        </section>
+
+        <style>
+            .percentile-section {{
+                background: linear-gradient(180deg, rgba(0, 245, 255, 0.05) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .percentile-grid {{
+                display: flex;
+                justify-content: center;
+                gap: 4rem;
+                flex-wrap: wrap;
+            }}
+
+            .percentile-card {{
+                text-align: center;
+            }}
+
+            .percentile-ring {{
+                width: 140px;
+                height: 140px;
+                position: relative;
+                margin: 0 auto 1rem;
+            }}
+
+            .percentile-ring svg {{
+                width: 100%;
+                height: 100%;
+            }}
+
+            .percentile-value {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Orbitron', monospace;
+                font-size: 1.2rem;
+                font-weight: bold;
+                color: white;
+            }}
+
+            .percentile-label {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1rem;
+                color: white;
+                margin-bottom: 0.25rem;
+            }}
+
+            .percentile-detail {{
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.5);
+            }}
+        </style>
+    '''
+
+
+def generate_achievements_html(achievements: list) -> str:
+    """Generate HTML for achievements/badges."""
+    if not achievements:
+        return ""
+
+    # Sort by tier (gold first, then silver, bronze, special)
+    tier_order = {'gold': 0, 'silver': 1, 'bronze': 2, 'special': 3}
+    sorted_achievements = sorted(achievements, key=lambda x: tier_order.get(x.get('tier', 'special'), 99))
+
+    tier_colors = {
+        'gold': 'linear-gradient(135deg, #FFD700, #FFA500)',
+        'silver': 'linear-gradient(135deg, #C0C0C0, #A0A0A0)',
+        'bronze': 'linear-gradient(135deg, #CD7F32, #8B4513)',
+        'special': 'linear-gradient(135deg, var(--neon-purple), var(--neon-pink))',
+    }
+
+    tier_borders = {
+        'gold': 'rgba(255, 215, 0, 0.5)',
+        'silver': 'rgba(192, 192, 192, 0.5)',
+        'bronze': 'rgba(205, 127, 50, 0.5)',
+        'special': 'rgba(139, 92, 246, 0.5)',
+    }
+
+    badges_html = ""
+    for badge in sorted_achievements:
+        tier = badge.get('tier', 'special')
+        badges_html += f'''
+            <div class="achievement-badge" style="--badge-gradient: {tier_colors.get(tier, tier_colors['special'])}; --badge-border: {tier_borders.get(tier, tier_borders['special'])};">
+                <div class="badge-icon">{badge.get('icon', '🏆')}</div>
+                <div class="badge-info">
+                    <div class="badge-name">{html.escape(badge.get('name', ''))}</div>
+                    <div class="badge-desc">{html.escape(badge.get('desc', ''))}</div>
+                </div>
+                <div class="badge-tier">{tier.upper()}</div>
+            </div>
+        '''
+
+    return f'''
+        <!-- Achievements Section -->
+        <section class="chart-section achievements-section">
+            <div class="chart-title"><span>🏆</span> Achievements Unlocked</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                {len(achievements)} badges earned this year
+            </p>
+
+            <div class="achievements-grid">
+                {badges_html}
+            </div>
+        </section>
+
+        <style>
+            .achievements-section {{
+                background: linear-gradient(180deg, rgba(255, 215, 0, 0.03) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .achievements-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 1rem;
+                max-width: 900px;
+                margin: 0 auto;
+            }}
+
+            .achievement-badge {{
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                background: rgba(20, 20, 35, 0.9);
+                border: 1px solid var(--badge-border);
+                border-radius: 12px;
+                padding: 1rem;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+
+            .achievement-badge:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            }}
+
+            .badge-icon {{
+                font-size: 2rem;
+                width: 50px;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--badge-gradient);
+                border-radius: 10px;
+                flex-shrink: 0;
+            }}
+
+            .badge-info {{
+                flex: 1;
+                min-width: 0;
+            }}
+
+            .badge-name {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.95rem;
+                color: white;
+                margin-bottom: 0.25rem;
+            }}
+
+            .badge-desc {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.6);
+            }}
+
+            .badge-tier {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.65rem;
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+                background: var(--badge-gradient);
+                color: black;
+                font-weight: bold;
+            }}
+        </style>
+    '''
+
+
+def generate_prompt_dna_html(dna: dict) -> str:
+    """Generate HTML for the Prompt DNA section."""
+    if not dna or not dna.get('total_prompts_analyzed'):
+        return ""
+
+    # Escape helper
+    def e(s):
+        return html.escape(str(s)) if s else ""
+
+    personality = e(dna.get('prompt_personality', 'Unknown'))
+    personality_desc = e(dna.get('prompt_personality_description', ''))
+    personality_icon = dna.get('prompt_personality_icon', '🧬')
+    prompt_style = e(dna.get('prompt_style', 'balanced'))
+    total_prompts = dna.get('total_prompts_analyzed', 0)
+    avg_length = dna.get('avg_prompt_length_words', 0)
+    question_ratio = dna.get('question_ratio', 0) * 100
+
+    # Build catchphrases HTML
+    catchphrases = dna.get('top_catchphrases', [])[:5]
+    catchphrases_html = ""
+    if catchphrases:
+        items = []
+        for i, (phrase, count) in enumerate(catchphrases):
+            rank = i + 1
+            items.append(f'''
+                <div class="dna-catchphrase">
+                    <span class="catchphrase-rank">#{rank}</span>
+                    <span class="catchphrase-text">"{e(phrase)}"</span>
+                    <span class="catchphrase-count">{count}x</span>
+                </div>
+            ''')
+        catchphrases_html = ''.join(items)
+
+    # Build house rules HTML (now with source badges)
+    house_rules = dna.get('house_rules', [])[:5]
+    house_rules_html = ""
+    if house_rules:
+        items = []
+        for rule_item in house_rules:
+            # Handle both old tuple format and new dict format
+            if isinstance(rule_item, dict):
+                rule = rule_item.get('text', '')
+                count = rule_item.get('count', 0)
+                source = rule_item.get('source', 'freeform')
+            else:
+                rule, count = rule_item[:2]
+                source = rule_item[2] if len(rule_item) > 2 else 'freeform'
+
+            if source == 'template':
+                source_badge = '<span class="source-badge template" role="img" aria-label="From template" title="From a repeated template or evaluation rubric" tabindex="0">📋</span>'
+                sr_label = ' (from template)'
+            else:
+                source_badge = '<span class="source-badge freeform" role="img" aria-label="Direct instruction" title="Direct instruction you typed" tabindex="0">💬</span>'
+                sr_label = ' (direct instruction)'
+            items.append(f'''
+                <div class="dna-rule {'template-source' if source == 'template' else 'freeform-source'}" role="listitem">
+                    {source_badge}
+                    <span class="rule-text">{e(rule)}<span class="sr-only">{sr_label}</span></span>
+                    <span class="rule-count" aria-label="{count} occurrences">{count}x</span>
+                </div>
+            ''')
+        house_rules_html = ''.join(items)
+
+    # Build role assignments HTML (now with source badges)
+    roles = dna.get('role_assignments', [])[:5]
+    roles_html = ""
+    if roles:
+        items = []
+        for role_item in roles:
+            # Handle both old tuple format and new dict format
+            if isinstance(role_item, dict):
+                role = role_item.get('text', '')
+                count = role_item.get('count', 0)
+                source = role_item.get('source', 'freeform')
+            else:
+                role, count = role_item[:2]
+                source = role_item[2] if len(role_item) > 2 else 'freeform'
+
+            if source == 'template':
+                source_badge = '<span class="source-badge template" role="img" aria-label="From template" title="From a repeated template or evaluation rubric" tabindex="0">📋</span>'
+                sr_label = ' (from template)'
+            else:
+                source_badge = '<span class="source-badge freeform" role="img" aria-label="Direct instruction" title="Role you assigned directly" tabindex="0">💬</span>'
+                sr_label = ' (direct assignment)'
+            items.append(f'''
+                <div class="dna-role {'template-source' if source == 'template' else 'freeform-source'}" role="listitem">
+                    {source_badge}
+                    <span class="role-prefix" aria-hidden="true">You are a</span>
+                    <span class="role-text"><span class="sr-only">You are a </span>{e(role)}<span class="sr-only">{sr_label}</span></span>
+                    <span class="role-count" aria-label="{count} occurrences">{count}x</span>
+                </div>
+            ''')
+        roles_html = ''.join(items)
+
+    # Build tech mentions HTML
+    tech = dna.get('tech_mentions', {})
+    tech_html = ""
+    if tech:
+        sorted_tech = sorted(tech.items(), key=lambda x: -x[1])[:8]
+        items = []
+        for t, count in sorted_tech:
+            items.append(f'<span class="tech-tag">{e(t)}</span>')
+        tech_html = ''.join(items)
+
+    # Generated CLAUDE.md
+    claude_md = dna.get('generated_claude_md', '')
+    claude_md_escaped = e(claude_md)
+
+    # Quality scores
+    clarity = int(dna.get('clarity_score', 0) * 100)
+    structure = int(dna.get('structure_score', 0) * 100)
+    context = int(dna.get('context_score', 0) * 100)
+
+    return f'''
+        <!-- Prompt DNA Section -->
+        <section class="chart-section prompt-dna-section">
+            <div class="chart-title"><span>🧬</span> Your Prompt DNA</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Analyzed from {total_prompts:,} prompts • Avg {avg_length:.0f} words • {question_ratio:.0f}% questions
+            </p>
+
+            <!-- Prompt Personality Card -->
+            <div class="verdict-section" style="margin-bottom: 2rem;">
+                <div class="verdict-grid" style="grid-template-columns: 1fr;">
+                    <div class="verdict-card purple" style="text-align: center;">
+                        <div class="verdict-icon">{personality_icon}</div>
+                        <div class="verdict-subtitle">Your Prompt Personality</div>
+                        <div class="verdict-title">{personality}</div>
+                        <div class="verdict-desc">{personality_desc}</div>
+                        <div style="margin-top: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Style: {prompt_style}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catchphrases & House Rules Grid -->
+            <div class="dna-grid">
+                <!-- Catchphrases -->
+                <div class="dna-card">
+                    <div class="dna-card-title">💬 Your Catchphrases</div>
+                    <div class="dna-card-subtitle">Phrases you use repeatedly</div>
+                    <div class="dna-list">
+                        {catchphrases_html if catchphrases_html else '<div class="dna-empty">Not enough data yet</div>'}
+                    </div>
+                </div>
+
+                <!-- House Rules -->
+                <div class="dna-card" role="region" aria-labelledby="house-rules-title">
+                    <div class="dna-card-title" id="house-rules-title">📋 Your House Rules</div>
+                    <div class="dna-card-subtitle">Instructions you give Claude repeatedly <span class="source-legend" aria-label="Legend: speech bubble means direct instruction, clipboard means from template"><span title="Direct instruction">💬</span> direct · <span title="From template/rubric">📋</span> template</span></div>
+                    <div class="dna-list" role="list" aria-label="House rules list">
+                        {house_rules_html if house_rules_html else '<div class="dna-empty" role="status">Not enough data yet</div>'}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role Assignments -->
+            {f"""
+            <div class="dna-card" style="margin-top: 1.5rem;" role="region" aria-labelledby="roles-title">
+                <div class="dna-card-title" id="roles-title">🎭 Roles You Summon</div>
+                <div class="dna-card-subtitle">Your most common role assignments <span class="source-legend" aria-label="Legend: speech bubble means direct, clipboard means from template"><span title="Direct assignment">💬</span> direct · <span title="From template/rubric">📋</span> template</span></div>
+                <div class="dna-list">
+                    {roles_html}
+                </div>
+            </div>
+            """ if roles_html else ""}
+
+            <!-- Tech Stack -->
+            {f"""
+            <div class="dna-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">⚡ Tech You Mention</div>
+                <div class="tech-tags">
+                    {tech_html}
+                </div>
+            </div>
+            """ if tech_html else ""}
+
+            <!-- Quality Scores -->
+            <div class="dna-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">📊 Prompt Quality Signals</div>
+                <div class="dna-card-subtitle">Based on research-backed indicators</div>
+                <div class="quality-bars">
+                    <div class="quality-bar">
+                        <span class="quality-label">Clarity</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {clarity}%; background: var(--neon-cyan);"></div>
+                        </div>
+                        <span class="quality-value">{clarity}%</span>
+                    </div>
+                    <div class="quality-bar">
+                        <span class="quality-label">Structure</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {structure}%; background: var(--neon-purple);"></div>
+                        </div>
+                        <span class="quality-value">{structure}%</span>
+                    </div>
+                    <div class="quality-bar">
+                        <span class="quality-label">Context</span>
+                        <div class="quality-track">
+                            <div class="quality-fill" style="width: {context}%; background: var(--neon-pink);"></div>
+                        </div>
+                        <span class="quality-value">{context}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate CLAUDE.md Button -->
+            <div class="dna-card claude-md-card" style="margin-top: 1.5rem;">
+                <div class="dna-card-title">📝 Generate Your CLAUDE.md</div>
+                <div class="dna-card-subtitle">Based on your detected preferences</div>
+                <button class="claude-md-toggle" onclick="toggleClaudeMd()">
+                    Show Generated CLAUDE.md
+                </button>
+                <div class="claude-md-content" id="claudeMdContent" style="display: none;">
+                    <pre class="claude-md-preview">{claude_md_escaped}</pre>
+                    <button class="claude-md-copy" onclick="copyClaudeMd()">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <style>
+            .prompt-dna-section {{
+                background: linear-gradient(180deg, rgba(139, 92, 246, 0.1) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .dna-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1.5rem;
+            }}
+
+            .dna-card {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 16px;
+                padding: 1.5rem;
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .dna-card-title {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: var(--neon-purple);
+                margin-bottom: 0.25rem;
+            }}
+
+            .dna-card-subtitle {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 1rem;
+            }}
+
+            .dna-list {{
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }}
+
+            .dna-catchphrase, .dna-rule, .dna-role {{
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.5rem;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
+            }}
+
+            .catchphrase-rank {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.8rem;
+                color: var(--neon-cyan);
+                min-width: 2rem;
+            }}
+
+            .catchphrase-text, .rule-text, .role-text {{
+                flex: 1;
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 0.9rem;
+            }}
+
+            .catchphrase-count, .rule-count, .role-count {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.75rem;
+                color: var(--neon-pink);
+                background: rgba(255, 0, 110, 0.2);
+                padding: 0.2rem 0.5rem;
+                border-radius: 4px;
+            }}
+
+            .rule-icon {{
+                font-size: 1rem;
+            }}
+
+            .role-prefix {{
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.85rem;
+            }}
+
+            /* Screen reader only - WCAG compliant */
+            .sr-only {{
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }}
+
+            /* Source badges for template vs freeform */
+            .source-badge {{
+                font-size: 1rem;
+                cursor: help;
+                opacity: 0.8;
+                transition: opacity 0.2s, transform 0.2s;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 1.5rem;
+            }}
+
+            .source-badge:hover,
+            .source-badge:focus {{
+                opacity: 1;
+                transform: scale(1.1);
+            }}
+
+            .source-badge:focus {{
+                outline: 2px solid var(--neon-cyan);
+                outline-offset: 2px;
+                border-radius: 4px;
+            }}
+
+            .source-badge.template {{
+                filter: grayscale(0.3);
+            }}
+
+            .template-source {{
+                opacity: 0.7;
+                border-left: 3px solid rgba(255, 149, 0, 0.6);
+                padding-left: 0.75rem;
+                transition: opacity 0.2s, background 0.2s;
+            }}
+
+            .template-source:hover,
+            .template-source:focus-within {{
+                opacity: 1;
+                background: rgba(255, 149, 0, 0.05);
+            }}
+
+            .freeform-source {{
+                border-left: 3px solid var(--neon-cyan);
+                padding-left: 0.75rem;
+                transition: background 0.2s;
+            }}
+
+            .freeform-source:hover,
+            .freeform-source:focus-within {{
+                background: rgba(0, 245, 255, 0.05);
+            }}
+
+            /* Ensure sufficient contrast for badges */
+            .dna-rule, .dna-role {{
+                position: relative;
+            }}
+
+            /* Tooltip enhancement for keyboard users */
+            .source-badge[title] {{
+                position: relative;
+            }}
+
+            @media (prefers-reduced-motion: reduce) {{
+                .source-badge {{
+                    transition: none;
+                }}
+                .template-source,
+                .freeform-source {{
+                    transition: none;
+                }}
+            }}
+
+            /* Source legend in subtitles */
+            .source-legend {{
+                opacity: 0.6;
+                margin-left: 0.5rem;
+                font-size: 0.85em;
+                white-space: nowrap;
+            }}
+
+            .source-legend span {{
+                cursor: help;
+            }}
+
+            .tech-tags {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }}
+
+            .tech-tag {{
+                background: rgba(0, 245, 255, 0.15);
+                color: var(--neon-cyan);
+                padding: 0.4rem 0.8rem;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                border: 1px solid rgba(0, 245, 255, 0.3);
+            }}
+
+            .quality-bars {{
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }}
+
+            .quality-bar {{
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }}
+
+            .quality-label {{
+                min-width: 80px;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.7);
+            }}
+
+            .quality-track {{
+                flex: 1;
+                height: 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+
+            .quality-fill {{
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.5s ease;
+            }}
+
+            .quality-value {{
+                font-family: 'Orbitron', monospace;
+                font-size: 0.85rem;
+                min-width: 40px;
+                text-align: right;
+            }}
+
+            .claude-md-card {{
+                text-align: center;
+            }}
+
+            .claude-md-toggle {{
+                background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                font-family: 'Orbitron', monospace;
+                font-size: 0.9rem;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+
+            .claude-md-toggle:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+            }}
+
+            .claude-md-content {{
+                margin-top: 1rem;
+                text-align: left;
+            }}
+
+            .claude-md-preview {{
+                background: rgba(0, 0, 0, 0.5);
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: 'Fira Code', monospace;
+                font-size: 0.8rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+                max-height: 400px;
+                overflow-y: auto;
+                color: rgba(255, 255, 255, 0.85);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .claude-md-copy {{
+                margin-top: 1rem;
+                background: rgba(0, 245, 255, 0.2);
+                border: 1px solid var(--neon-cyan);
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                color: var(--neon-cyan);
+                font-family: 'Orbitron', monospace;
+                font-size: 0.85rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }}
+
+            .claude-md-copy:hover {{
+                background: rgba(0, 245, 255, 0.3);
+            }}
+
+            .dna-empty {{
+                color: rgba(255, 255, 255, 0.4);
+                font-style: italic;
+                text-align: center;
+                padding: 1rem;
+            }}
+        </style>
+
+        <script>
+            function toggleClaudeMd() {{
+                const content = document.getElementById('claudeMdContent');
+                const btn = document.querySelector('.claude-md-toggle');
+                if (content.style.display === 'none') {{
+                    content.style.display = 'block';
+                    btn.textContent = 'Hide Generated CLAUDE.md';
+                }} else {{
+                    content.style.display = 'none';
+                    btn.textContent = 'Show Generated CLAUDE.md';
+                }}
+            }}
+
+            function copyClaudeMd() {{
+                const pre = document.querySelector('.claude-md-preview');
+                navigator.clipboard.writeText(pre.textContent).then(() => {{
+                    const btn = document.querySelector('.claude-md-copy');
+                    const original = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => btn.textContent = original, 2000);
+                }});
+            }}
+        </script>
+    '''
+
+
+def generate_proficiency_html(proficiency: dict) -> str:
+    """Generate HTML for the Proficiency Assessment section."""
+    if not proficiency or not proficiency.get('overall_proficiency'):
+        return ""
+
+    # Escape helper
+    def e(s):
+        return html.escape(str(s)) if s else ""
+
+    overall = proficiency.get('overall_proficiency', 0)
+    level = proficiency.get('proficiency_level', 'unknown').upper()
+
+    # Dimension scores
+    prompt_score = proficiency.get('prompt_engineering_score', 0)
+    context_score = proficiency.get('context_engineering_score', 0)
+    memory_score = proficiency.get('memory_engineering_score', 0)
+    tool_score = proficiency.get('tool_use_score', 0)
+
+    # Breakdowns
+    clarity = proficiency.get('prompt_clarity_score', 0)
+    specificity = proficiency.get('prompt_specificity_score', 0)
+    technique = proficiency.get('prompt_technique_score', 0)
+    iteration = proficiency.get('prompt_iteration_efficiency', 0)
+    gap_rate = proficiency.get('prompt_gap_rate', 0) * 100
+
+    context_eff = proficiency.get('context_efficiency_score', 0)
+    position = proficiency.get('context_position_awareness', 0)
+    compression = proficiency.get('context_compression_skill', 0)
+
+    continuity = proficiency.get('memory_continuity_score', 0)
+    isolation = proficiency.get('memory_isolation_score', 0)
+    redundancy = proficiency.get('memory_redundancy_score', 0)
+
+    discovery = proficiency.get('tool_discovery_score', 0)
+    composition = proficiency.get('tool_composition_score', 0)
+    parallelism = proficiency.get('tool_parallelism_score', 0)
+    recovery = proficiency.get('tool_recovery_score', 0)
+
+    # Insights
+    strength = e(proficiency.get('top_strength', ''))
+    strength_desc = e(proficiency.get('top_strength_description', ''))
+    weakness = e(proficiency.get('primary_weakness', ''))
+    weakness_desc = e(proficiency.get('primary_weakness_description', ''))
+    recommendations = proficiency.get('recommendations', [])
+
+    # Build recommendations HTML
+    recs_html = ""
+    if recommendations:
+        recs_items = [f'<li>{e(rec)}</li>' for rec in recommendations[:5]]
+        recs_html = f'''
+            <div class="prof-recs">
+                <div class="prof-recs-header">📈 Actionable Recommendations</div>
+                <div class="prof-recs-subtitle">Based on academic research</div>
+                <ul class="prof-recommendations">{"".join(recs_items)}</ul>
+            </div>
+        '''
+
+    # Level color
+    level_colors = {
+        'EXPERT': 'var(--neon-cyan)',
+        'ADVANCED': 'var(--neon-purple)',
+        'INTERMEDIATE': 'var(--neon-pink)',
+        'NOVICE': 'rgba(255,255,255,0.5)',
+    }
+    level_color = level_colors.get(level, 'var(--neon-purple)')
+
+    return f'''
+        <!-- Proficiency Assessment Section -->
+        <section class="chart-section proficiency-section">
+            <div class="chart-title"><span>📊</span> Your Prompting Proficiency</div>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Based on 25+ academic papers on prompt engineering effectiveness
+            </p>
+
+            <!-- Overall Score + Radar Chart -->
+            <div class="prof-overview">
+                <div class="prof-overall">
+                    <div class="prof-overall-score" style="--level-color: {level_color};">
+                        <div class="prof-score-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="{level_color}" stroke-width="8"
+                                    stroke-dasharray="{overall * 2.83} 283"
+                                    stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                            </svg>
+                            <div class="prof-score-value">{overall}</div>
+                        </div>
+                        <div class="prof-level" style="color: {level_color};">{level}</div>
+                    </div>
+                </div>
+
+                <!-- Radar Chart -->
+                <div class="prof-radar">
+                    <svg viewBox="0 0 200 200" class="radar-chart">
+                        <!-- Background rings -->
+                        <polygon points="100,20 170,65 170,135 100,180 30,135 30,65" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,40 150,72.5 150,127.5 100,160 50,127.5 50,72.5" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,60 130,80 130,120 100,140 70,120 70,80" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="100,80 110,87.5 110,112.5 100,120 90,112.5 90,87.5" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+                        <!-- Axis lines -->
+                        <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="170" y2="65" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="170" y2="135" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="100" y2="180" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="30" y2="135" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="30" y2="65" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+
+                        <!-- Data polygon (6 axes: Prompt, Context, Memory, Tools, and 2 placeholders for symmetry) -->
+                        <polygon
+                            points="100,{100 - prompt_score * 0.8} {100 + context_score * 0.7},{100 - context_score * 0.35} {100 + memory_score * 0.7},{100 + memory_score * 0.35} 100,{100 + tool_score * 0.8} {100 - tool_score * 0.7},{100 + memory_score * 0.35} {100 - context_score * 0.7},{100 - context_score * 0.35}"
+                            fill="rgba(139, 92, 246, 0.3)"
+                            stroke="var(--neon-purple)"
+                            stroke-width="2"
+                        />
+
+                        <!-- Data points -->
+                        <circle cx="100" cy="{100 - prompt_score * 0.8}" r="4" fill="var(--neon-cyan)"/>
+                        <circle cx="{100 + context_score * 0.7}" cy="{100 - context_score * 0.35}" r="4" fill="var(--neon-purple)"/>
+                        <circle cx="{100 + memory_score * 0.7}" cy="{100 + memory_score * 0.35}" r="4" fill="var(--neon-pink)"/>
+                        <circle cx="100" cy="{100 + tool_score * 0.8}" r="4" fill="var(--neon-green)"/>
+
+                        <!-- Labels -->
+                        <text x="100" y="10" text-anchor="middle" fill="var(--neon-cyan)" font-size="10" font-family="Orbitron">Prompt</text>
+                        <text x="180" y="65" text-anchor="start" fill="var(--neon-purple)" font-size="10" font-family="Orbitron">Context</text>
+                        <text x="180" y="145" text-anchor="start" fill="var(--neon-pink)" font-size="10" font-family="Orbitron">Memory</text>
+                        <text x="100" y="198" text-anchor="middle" fill="var(--neon-green)" font-size="10" font-family="Orbitron">Tools</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Four Dimensions -->
+            <div class="prof-dimensions">
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">✍️</span>
+                        <span class="prof-dim-name">Prompt Engineering</span>
+                        <span class="prof-dim-score">{prompt_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {prompt_score}%; background: var(--neon-cyan);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Clarity: {clarity}</span>
+                        <span>Specificity: {specificity}</span>
+                        <span>Technique: {technique}</span>
+                        <span>Iteration: {iteration}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">📦</span>
+                        <span class="prof-dim-name">Context Engineering</span>
+                        <span class="prof-dim-score">{context_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {context_score}%; background: var(--neon-purple);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Efficiency: {context_eff}</span>
+                        <span>Position: {position}</span>
+                        <span>Compression: {compression}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">🧠</span>
+                        <span class="prof-dim-name">Memory Engineering</span>
+                        <span class="prof-dim-score">{memory_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {memory_score}%; background: var(--neon-pink);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Continuity: {continuity}</span>
+                        <span>Isolation: {isolation}</span>
+                        <span>Low Redundancy: {redundancy}</span>
+                    </div>
+                </div>
+
+                <div class="prof-dimension">
+                    <div class="prof-dim-header">
+                        <span class="prof-dim-icon">🛠️</span>
+                        <span class="prof-dim-name">Tool Use</span>
+                        <span class="prof-dim-score">{tool_score}</span>
+                    </div>
+                    <div class="prof-dim-bar">
+                        <div class="prof-dim-fill" style="width: {tool_score}%; background: var(--neon-green);"></div>
+                    </div>
+                    <div class="prof-dim-details">
+                        <span>Discovery: {discovery}</span>
+                        <span>Composition: {composition}</span>
+                        <span>Parallelism: {parallelism}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gap Rate Indicator -->
+            <div class="prof-gap-rate">
+                <div class="prof-gap-header">
+                    <span>Knowledge Gap Rate</span>
+                    <span class="prof-gap-value" style="color: {'var(--neon-green)' if gap_rate < 20 else 'var(--neon-pink)' if gap_rate > 40 else 'var(--neon-cyan)'};">
+                        {gap_rate:.0f}%
+                    </span>
+                </div>
+                <div class="prof-gap-bar">
+                    <div class="prof-gap-fill" style="width: {min(100, gap_rate)}%; background: {'var(--neon-green)' if gap_rate < 20 else 'var(--neon-pink)' if gap_rate > 40 else 'var(--neon-cyan)'};"></div>
+                </div>
+                <div class="prof-gap-labels">
+                    <span>Expert (&lt;15%)</span>
+                    <span>Average (20-40%)</span>
+                    <span>Needs Work (&gt;50%)</span>
+                </div>
+            </div>
+
+            <!-- Strengths & Weaknesses -->
+            <div class="prof-insights">
+                <div class="prof-insight strength">
+                    <div class="prof-insight-header">💪 Top Strength</div>
+                    <div class="prof-insight-title">{strength}</div>
+                    <div class="prof-insight-desc">{strength_desc}</div>
+                </div>
+                <div class="prof-insight weakness">
+                    <div class="prof-insight-header">🎯 Biggest Opportunity</div>
+                    <div class="prof-insight-title">{weakness}</div>
+                    <div class="prof-insight-desc">{weakness_desc}</div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            {recs_html}
+        </section>
+
+        <style>
+            .proficiency-section {{
+                background: linear-gradient(180deg, rgba(0, 245, 255, 0.05) 0%, rgba(20, 20, 35, 0.8) 100%);
+            }}
+
+            .prof-overview {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 3rem;
+                flex-wrap: wrap;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-overall {{
+                display: flex;
+                justify-content: center;
+            }}
+
+            .prof-radar {{
+                width: 200px;
+                height: 200px;
+            }}
+
+            .radar-chart {{
+                width: 100%;
+                height: 100%;
+            }}
+
+            .prof-overall-score {{
+                text-align: center;
+            }}
+
+            .prof-score-ring {{
+                width: 150px;
+                height: 150px;
+                position: relative;
+            }}
+
+            .prof-score-ring svg {{
+                width: 100%;
+                height: 100%;
+                transform: rotate(-90deg);
+            }}
+
+            .prof-score-value {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Orbitron', monospace;
+                font-size: 2.5rem;
+                font-weight: bold;
+                color: white;
+            }}
+
+            .prof-level {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1rem;
+                margin-top: 0.5rem;
+                letter-spacing: 2px;
+            }}
+
+            .prof-dimensions {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-dimension {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+
+            .prof-dim-header {{
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.75rem;
+            }}
+
+            .prof-dim-icon {{
+                font-size: 1.25rem;
+            }}
+
+            .prof-dim-name {{
+                flex: 1;
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.9);
+            }}
+
+            .prof-dim-score {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.25rem;
+                font-weight: bold;
+            }}
+
+            .prof-dim-bar {{
+                height: 6px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 3px;
+                overflow: hidden;
+                margin-bottom: 0.75rem;
+            }}
+
+            .prof-dim-fill {{
+                height: 100%;
+                border-radius: 3px;
+                transition: width 0.5s ease;
+            }}
+
+            .prof-dim-details {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.5);
+            }}
+
+            .prof-dim-details span {{
+                background: rgba(255, 255, 255, 0.05);
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+            }}
+
+            .prof-gap-rate {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+                margin-bottom: 2rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+
+            .prof-gap-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.75rem;
+                font-size: 0.95rem;
+            }}
+
+            .prof-gap-value {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.25rem;
+                font-weight: bold;
+            }}
+
+            .prof-gap-bar {{
+                height: 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                overflow: hidden;
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-gap-fill {{
+                height: 100%;
+                border-radius: 4px;
+            }}
+
+            .prof-gap-labels {{
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.7rem;
+                color: rgba(255, 255, 255, 0.4);
+            }}
+
+            .prof-insights {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }}
+
+            .prof-insight {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.25rem;
+            }}
+
+            .prof-insight.strength {{
+                border: 1px solid rgba(0, 245, 255, 0.3);
+            }}
+
+            .prof-insight.weakness {{
+                border: 1px solid rgba(255, 0, 110, 0.3);
+            }}
+
+            .prof-insight-header {{
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-insight-title {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: white;
+                margin-bottom: 0.5rem;
+            }}
+
+            .prof-insight-desc {{
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.7);
+                line-height: 1.4;
+            }}
+
+            .prof-recs {{
+                background: rgba(20, 20, 35, 0.8);
+                border-radius: 12px;
+                padding: 1.5rem;
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            }}
+
+            .prof-recs-header {{
+                font-family: 'Orbitron', monospace;
+                font-size: 1.1rem;
+                color: var(--neon-purple);
+                margin-bottom: 0.25rem;
+            }}
+
+            .prof-recs-subtitle {{
+                font-size: 0.8rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 1rem;
+            }}
+
+            .prof-recommendations {{
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }}
+
+            .prof-recommendations li {{
+                padding: 0.75rem;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.85);
+                border-left: 3px solid var(--neon-purple);
+            }}
+
+            .prof-recommendations li:last-child {{
+                margin-bottom: 0;
+            }}
+        </style>
+    '''
 
 
 def generate_model_tags(model_items: list) -> str:

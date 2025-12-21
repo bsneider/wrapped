@@ -94,7 +94,13 @@ Easter Eggs:
         action='store_true',
         help='Do not automatically open the report in a browser'
     )
-    
+
+    parser.add_argument(
+        '--no-telemetry',
+        action='store_true',
+        help='Do not send anonymous usage metrics'
+    )
+
     args = parser.parse_args()
     
     # Print banner
@@ -193,6 +199,56 @@ Easter Eggs:
     except Exception as e:
         if not args.quiet:
             print(f"⚠️  Project analysis failed: {e}", file=sys.stderr)
+
+    # Run Prompt DNA analysis
+    try:
+        from prompt_dna import analyze_prompt_dna, prompt_dna_to_dict
+
+        if not args.quiet:
+            print("🧬 Analyzing your Prompt DNA...", file=sys.stderr)
+
+        prompt_dna = analyze_prompt_dna(claude_dir)
+        dna_data = prompt_dna_to_dict(prompt_dna)
+
+        # Add to output
+        json_data['prompt_dna'] = dna_data
+
+        if not args.quiet:
+            print(f"✅ Analyzed {prompt_dna.total_prompts_analyzed} prompts", file=sys.stderr)
+            print(f"🎭 Prompt Personality: {prompt_dna.prompt_personality_icon} {prompt_dna.prompt_personality}", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  prompt_dna.py not found, skipping prompt analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Prompt DNA analysis failed: {e}", file=sys.stderr)
+
+    # Run Proficiency Analysis (research-backed 4-dimension scoring)
+    try:
+        from proficiency_analyzer import analyze_proficiency, proficiency_to_dict
+
+        if not args.quiet:
+            print("📊 Analyzing prompting proficiency...", file=sys.stderr)
+
+        # Pass tool data for tool use analysis
+        tool_data = {'tool_frequency': json_data.get('tool_frequency', {})}
+        proficiency = analyze_proficiency(claude_dir, tool_data)
+        proficiency_data = proficiency_to_dict(proficiency)
+
+        # Add to output
+        json_data['proficiency'] = proficiency_data
+
+        if not args.quiet:
+            print(f"✅ Overall Proficiency: {proficiency.overall_proficiency}/100 ({proficiency.proficiency_level})", file=sys.stderr)
+            print(f"   Prompt: {proficiency.prompt_engineering_score} | Context: {proficiency.context_engineering_score} | Memory: {proficiency.memory_engineering_score} | Tools: {proficiency.tool_use_score}", file=sys.stderr)
+
+    except ImportError:
+        if not args.quiet:
+            print("⚠️  proficiency_analyzer.py not found, skipping proficiency analysis", file=sys.stderr)
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Proficiency analysis failed: {e}", file=sys.stderr)
 
     # Run git repository analysis
     try:
@@ -316,6 +372,250 @@ Easter Eggs:
             import traceback
             traceback.print_exc(file=sys.stderr)
 
+    # Send telemetry (opt-out with --no-telemetry)
+    if not getattr(args, 'no_telemetry', False):
+        try:
+            import urllib.request
+            import urllib.error
+            import hashlib
+            import platform
+
+            if not args.quiet:
+                print("📡 Syncing anonymous metrics...", file=sys.stderr)
+
+            # Generate privacy-safe fingerprint
+            fp_data = f"{platform.node()}|{platform.system()}|{platform.machine()}"
+            fingerprint = hashlib.sha256(fp_data.encode()).hexdigest()[:16]
+
+            # Build telemetry payload from json_data
+            tool_freq = json_data.get('tool_frequency', {})
+            model_freq = json_data.get('model_frequency', {})
+            total_model_uses = sum(model_freq.values()) or 1
+
+            # Calculate model percentages
+            opus_count = sum(v for k, v in model_freq.items() if 'opus' in k.lower())
+            sonnet_count = sum(v for k, v in model_freq.items() if 'sonnet' in k.lower())
+            haiku_count = sum(v for k, v in model_freq.items() if 'haiku' in k.lower())
+
+            # Get prompt DNA data if available
+            prompt_dna = json_data.get('prompt_dna', {})
+
+            telemetry_payload = {
+                'fingerprint': fingerprint,
+                'client_version': '1.0.0',
+                'event_type': 'wrapped_generated',
+
+                # Core metrics
+                'total_sessions': json_data.get('total_sessions'),
+                'total_messages': json_data.get('total_messages'),
+                'total_tokens': (json_data.get('total_input_tokens', 0) or 0) + (json_data.get('total_output_tokens', 0) or 0),
+                'total_cost_usd': json_data.get('total_cost_usd'),
+
+                # Usage patterns
+                'peak_hour': json_data.get('peak_hour'),
+                'peak_day': json_data.get('peak_day'),
+                'weekend_ratio': json_data.get('weekend_ratio'),
+                'longest_streak_days': json_data.get('longest_streak_days'),
+
+                # Model distribution
+                'model_opus_pct': round(opus_count * 100 / total_model_uses, 1) if total_model_uses else None,
+                'model_sonnet_pct': round(sonnet_count * 100 / total_model_uses, 1) if total_model_uses else None,
+                'model_haiku_pct': round(haiku_count * 100 / total_model_uses, 1) if total_model_uses else None,
+
+                # Proficiency
+                'cache_hit_rate': json_data.get('cache_efficiency_ratio'),
+
+                # Prompt DNA
+                'total_prompts_analyzed': prompt_dna.get('total_prompts_analyzed'),
+                'avg_prompt_length': prompt_dna.get('avg_prompt_length_words'),
+                'prompt_personality': prompt_dna.get('prompt_personality'),
+                'communication_style': prompt_dna.get('prompt_style'),
+                'top_catchphrases_count': len(prompt_dna.get('top_catchphrases', [])),
+                'house_rules_count': len(prompt_dna.get('house_rules', [])),
+
+                # Tool usage
+                'tool_read_count': tool_freq.get('Read', 0),
+                'tool_edit_count': tool_freq.get('Edit', 0),
+                'tool_bash_count': tool_freq.get('Bash', 0),
+                'tool_write_count': tool_freq.get('Write', 0),
+                'tool_grep_count': tool_freq.get('Grep', 0),
+                'tool_glob_count': tool_freq.get('Glob', 0),
+                'tool_task_count': tool_freq.get('Task', 0),
+
+                # Personality
+                'developer_personality': json_data.get('developer_personality'),
+                'coding_city': json_data.get('coding_city'),
+
+                # Git metrics
+                'git_repos_analyzed': json_data.get('git_repos_analyzed'),
+                'git_total_commits': json_data.get('git_total_commits'),
+                'git_user_commits': json_data.get('git_user_commits'),
+                'git_total_lines_written': json_data.get('git_total_lines_written'),
+
+                # Projects
+                'projects_count': len(json_data.get('top_projects', [])),
+                'top_project_sessions': json_data.get('top_projects', [{}])[0].get('sessions') if json_data.get('top_projects') else None,
+            }
+
+            # Send to telemetry endpoint
+            req = urllib.request.Request(
+                'https://claude-wrapped-telemetry.pierretokns.workers.dev/api/wrapped',
+                data=json.dumps(telemetry_payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 201:
+                    if not args.quiet:
+                        print("✅ Metrics synced (anonymous)", file=sys.stderr)
+
+        except Exception as e:
+            if not args.quiet:
+                print(f"⚠️  Metrics sync skipped: {e}", file=sys.stderr)
+
+    # Fetch community benchmarks for percentile rankings
+    try:
+        import urllib.request
+
+        if not args.quiet:
+            print("📊 Fetching community benchmarks...", file=sys.stderr)
+
+        req = urllib.request.Request(
+            'https://claude-wrapped-telemetry.pierretokns.workers.dev/api/benchmarks',
+            headers={'Accept': 'application/json'},
+            method='GET'
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            benchmarks_data = json.loads(resp.read().decode('utf-8'))
+
+            if benchmarks_data.get('success'):
+                benchmarks = benchmarks_data['data']['benchmarks']
+                total_community = benchmarks_data['data']['total_users']
+
+                # Calculate percentiles for user
+                user_sessions = json_data.get('total_sessions', 0)
+                user_cost = json_data.get('total_cost_usd', 0)
+
+                def calc_percentile(value, p25, p50, p75, p90, max_val):
+                    """Estimate percentile based on distribution markers."""
+                    if value >= max_val:
+                        return 99
+                    elif value >= p90:
+                        return 90 + int((value - p90) / (max_val - p90 + 1) * 9)
+                    elif value >= p75:
+                        return 75 + int((value - p75) / (p90 - p75 + 1) * 15)
+                    elif value >= p50:
+                        return 50 + int((value - p50) / (p75 - p50 + 1) * 25)
+                    elif value >= p25:
+                        return 25 + int((value - p25) / (p50 - p25 + 1) * 25)
+                    else:
+                        return max(1, int(value / (p25 + 1) * 25))
+
+                session_percentile = calc_percentile(
+                    user_sessions,
+                    benchmarks['sessions']['p25'],
+                    benchmarks['sessions']['p50'],
+                    benchmarks['sessions']['p75'],
+                    benchmarks['sessions']['p90'],
+                    benchmarks['sessions']['max']
+                )
+
+                cost_percentile = calc_percentile(
+                    user_cost,
+                    benchmarks['cost_usd']['p25'],
+                    benchmarks['cost_usd']['p50'],
+                    benchmarks['cost_usd']['p75'],
+                    benchmarks['cost_usd']['p90'],
+                    benchmarks['cost_usd']['max']
+                )
+
+                json_data['community_benchmarks'] = {
+                    'total_users': total_community,
+                    'session_percentile': session_percentile,
+                    'cost_percentile': cost_percentile,
+                    'avg_sessions': benchmarks['sessions']['avg'],
+                    'avg_cost': benchmarks['cost_usd']['avg'],
+                }
+
+                if not args.quiet:
+                    print(f"✅ You're in the top {100 - session_percentile}% by sessions!", file=sys.stderr)
+
+    except Exception as e:
+        if not args.quiet:
+            print(f"⚠️  Benchmarks skipped: {e}", file=sys.stderr)
+
+    # Generate achievements
+    achievements = []
+
+    total_sessions = json_data.get('total_sessions', 0)
+    total_cost = json_data.get('total_cost_usd', 0)
+    total_tokens = (json_data.get('total_input_tokens', 0) or 0) + (json_data.get('total_output_tokens', 0) or 0)
+    longest_streak = json_data.get('longest_streak_days', 0)
+    weekend_ratio = json_data.get('weekend_ratio', 0)
+    peak_hour = json_data.get('peak_hour', 12)
+    tool_freq = json_data.get('tool_frequency', {})
+    proficiency = json_data.get('proficiency', {})
+
+    # Session milestones
+    if total_sessions >= 500:
+        achievements.append({'id': 'sessions_500', 'name': 'Power User', 'icon': '⚡', 'desc': '500+ sessions', 'tier': 'gold'})
+    elif total_sessions >= 250:
+        achievements.append({'id': 'sessions_250', 'name': 'Regular', 'icon': '🎯', 'desc': '250+ sessions', 'tier': 'silver'})
+    elif total_sessions >= 100:
+        achievements.append({'id': 'sessions_100', 'name': 'Getting Started', 'icon': '🌱', 'desc': '100+ sessions', 'tier': 'bronze'})
+
+    # Token usage
+    if total_tokens >= 10_000_000:
+        achievements.append({'id': 'tokens_10m', 'name': 'Token Titan', 'icon': '🏆', 'desc': '10M+ tokens', 'tier': 'gold'})
+    elif total_tokens >= 1_000_000:
+        achievements.append({'id': 'tokens_1m', 'name': 'Token Master', 'icon': '🔤', 'desc': '1M+ tokens', 'tier': 'silver'})
+
+    # Streak
+    if longest_streak >= 30:
+        achievements.append({'id': 'streak_30', 'name': 'Month Warrior', 'icon': '🔥', 'desc': '30+ day streak', 'tier': 'gold'})
+    elif longest_streak >= 14:
+        achievements.append({'id': 'streak_14', 'name': 'Two Week Streak', 'icon': '📅', 'desc': '14+ day streak', 'tier': 'silver'})
+    elif longest_streak >= 7:
+        achievements.append({'id': 'streak_7', 'name': 'Week Warrior', 'icon': '🗓️', 'desc': '7+ day streak', 'tier': 'bronze'})
+
+    # Time-based
+    if peak_hour >= 22 or peak_hour <= 4:
+        achievements.append({'id': 'night_owl', 'name': 'Night Owl', 'icon': '🦉', 'desc': 'Peak coding after 10pm', 'tier': 'special'})
+    elif peak_hour >= 5 and peak_hour <= 8:
+        achievements.append({'id': 'early_bird', 'name': 'Early Bird', 'icon': '🐦', 'desc': 'Peak coding before 9am', 'tier': 'special'})
+
+    if weekend_ratio and weekend_ratio > 0.4:
+        achievements.append({'id': 'weekend_warrior', 'name': 'Weekend Warrior', 'icon': '⚔️', 'desc': '40%+ weekend coding', 'tier': 'special'})
+
+    # Tool mastery
+    if tool_freq.get('Task', 0) >= 50:
+        achievements.append({'id': 'delegator', 'name': 'The Delegator', 'icon': '👥', 'desc': '50+ Task tool uses', 'tier': 'silver'})
+    if tool_freq.get('Bash', 0) >= 500:
+        achievements.append({'id': 'shell_master', 'name': 'Shell Master', 'icon': '💻', 'desc': '500+ Bash commands', 'tier': 'silver'})
+    if tool_freq.get('Edit', 0) >= 1000:
+        achievements.append({'id': 'editor', 'name': 'Code Surgeon', 'icon': '✂️', 'desc': '1000+ edits', 'tier': 'silver'})
+
+    # Proficiency-based
+    overall_prof = proficiency.get('overall_proficiency', 0)
+    if overall_prof >= 80:
+        achievements.append({'id': 'prof_expert', 'name': 'Prompting Expert', 'icon': '🎓', 'desc': '80+ proficiency', 'tier': 'gold'})
+    elif overall_prof >= 65:
+        achievements.append({'id': 'prof_advanced', 'name': 'Advanced Prompter', 'icon': '📚', 'desc': '65+ proficiency', 'tier': 'silver'})
+
+    if proficiency.get('tool_use_score', 0) >= 80:
+        achievements.append({'id': 'tool_master', 'name': 'Tool Master', 'icon': '🛠️', 'desc': 'Expert tool usage', 'tier': 'gold'})
+
+    # Cost efficiency (cost per session)
+    if total_sessions > 50 and total_cost / total_sessions < 0.30:
+        achievements.append({'id': 'efficient', 'name': 'Efficiency Expert', 'icon': '💡', 'desc': '<$0.30/session', 'tier': 'silver'})
+
+    # First wrapped (everyone gets this)
+    achievements.append({'id': 'first_wrapped', 'name': 'Wrapped 2025', 'icon': '🎁', 'desc': 'Generated your first wrapped', 'tier': 'special'})
+
+    json_data['achievements'] = achievements
+    if not args.quiet and achievements:
+        print(f"🏆 Unlocked {len(achievements)} achievements!", file=sys.stderr)
+
     # Generate output
     if args.json:
         output = json.dumps(json_data, indent=2, default=str)
@@ -340,13 +640,50 @@ Easter Eggs:
             if not args.quiet:
                 print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
 
-        # Open in browser unless --no-open is specified
+        # Serve via HTTP and open in browser (unless --no-open)
         if not args.json and not args.no_open:
             import webbrowser
-            file_url = f"file://{output_path}"
+            import http.server
+            import socketserver
+            import threading
+
+            # Find an available port
+            port = 8765
+            for p in range(8765, 8800):
+                try:
+                    with socketserver.TCPServer(("", p), None) as test:
+                        port = p
+                        break
+                except OSError:
+                    continue
+
+            # Serve from the output directory
+            serve_dir = output_path.parent
+            serve_file = output_path.name
+
+            class QuietHandler(http.server.SimpleHTTPRequestHandler):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, directory=str(serve_dir), **kwargs)
+                def log_message(self, format, *args):
+                    pass  # Suppress logging
+
+            server = socketserver.TCPServer(("", port), QuietHandler)
+            server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            server_thread.start()
+
+            url = f"http://localhost:{port}/{serve_file}"
             if not args.quiet:
-                print(f"🌐 Opening in browser...", file=sys.stderr)
-            webbrowser.open(file_url)
+                print(f"🌐 Serving at {url}", file=sys.stderr)
+                print(f"   (Ctrl+C to stop server)", file=sys.stderr)
+            webbrowser.open(url)
+
+            # Keep server running until interrupted
+            try:
+                server_thread.join()
+            except KeyboardInterrupt:
+                if not args.quiet:
+                    print(f"\n👋 Server stopped", file=sys.stderr)
+                server.shutdown()
     else:
         print(output)
         # Also copy to opus45.html in the project directory when outputting to stdout
@@ -355,7 +692,7 @@ Easter Eggs:
             with open(opus45_path, 'w', encoding='utf-8') as f:
                 f.write(output)
             print(f"📋 Also saved to {opus45_path}", file=sys.stderr)
-    
+
     return 0
 
 
