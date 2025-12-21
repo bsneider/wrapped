@@ -864,6 +864,27 @@ def generate_html(data: dict) -> str:
             border: 1px solid rgba(0, 245, 255, 0.2);
         }}
 
+        .git-langs {{
+            display: inline-flex;
+            gap: 0.25rem;
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+        }}
+
+        .git-lang {{
+            background: rgba(139, 92, 246, 0.2) !important;
+            border-color: rgba(139, 92, 246, 0.3) !important;
+            color: var(--neon-purple) !important;
+            font-size: 0.75rem;
+        }}
+
+        .git-recent {{
+            color: rgba(16, 185, 129, 0.9) !important;
+            background: rgba(16, 185, 129, 0.1) !important;
+            border-color: rgba(16, 185, 129, 0.3) !important;
+        }}
+
         .source-badge {{
             font-size: 0.9rem;
             margin-right: 0.3rem;
@@ -1989,12 +2010,6 @@ def generate_html(data: dict) -> str:
         <!-- Achievements -->
         {generate_achievements_html(data.get('achievements', []))}
 
-        <!-- Prompt DNA Section -->
-        {generate_prompt_dna_html(data.get('prompt_dna', {}))}
-
-        <!-- Proficiency Assessment Section -->
-        {generate_proficiency_html(data.get('proficiency', {}))}
-
         <!-- Top Projects Explorer -->
         <section class="chart-section">
             <div class="chart-title"><span>📁</span> Top Projects</div>
@@ -2157,7 +2172,6 @@ def generate_html(data: dict) -> str:
             <div class="command-grid">
                 {generate_command_cards(data)}
             </div>
-            {generate_frameworks_html(data)}
         </section>
 
         <!-- Karpathy Quote -->
@@ -3345,11 +3359,27 @@ def generate_percentile_html(benchmarks: dict) -> str:
     total_users = benchmarks.get('total_users', 0)
     session_percentile = benchmarks.get('session_percentile', 50)
     cost_percentile = benchmarks.get('cost_percentile', 50)
+    token_percentile = benchmarks.get('token_percentile', 50)
+    projects_percentile = benchmarks.get('projects_percentile', 50)
     avg_sessions = benchmarks.get('avg_sessions', 0)
     avg_cost = benchmarks.get('avg_cost', 0)
+    avg_tokens = benchmarks.get('avg_tokens', 0)
+    avg_projects = benchmarks.get('avg_projects', 0)
+    user_tokens = benchmarks.get('user_tokens', 0)
+    user_projects = benchmarks.get('user_projects', 0)
 
     session_rank = 100 - session_percentile
     cost_rank = 100 - cost_percentile
+    token_rank = 100 - token_percentile
+    projects_rank = 100 - projects_percentile
+
+    # Format tokens for display
+    def format_tokens(n):
+        if n >= 1_000_000:
+            return f"{n/1_000_000:.1f}M"
+        elif n >= 1_000:
+            return f"{n/1_000:.0f}K"
+        return str(int(n))
 
     return f'''
         <!-- Community Rankings Section -->
@@ -3372,6 +3402,34 @@ def generate_percentile_html(benchmarks: dict) -> str:
                     </div>
                     <div class="percentile-label">Sessions</div>
                     <div class="percentile-detail">Avg: {avg_sessions:,}</div>
+                </div>
+
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {token_percentile}; --ring-color: var(--neon-purple);">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--neon-purple)" stroke-width="6"
+                                stroke-dasharray="{token_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {token_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Tokens</div>
+                    <div class="percentile-detail">You: {format_tokens(user_tokens)}</div>
+                </div>
+
+                <div class="percentile-card">
+                    <div class="percentile-ring" style="--percentile: {projects_percentile}; --ring-color: #10b981;">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#10b981" stroke-width="6"
+                                stroke-dasharray="{projects_percentile * 2.83} 283"
+                                stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        </svg>
+                        <div class="percentile-value">Top {projects_rank}%</div>
+                    </div>
+                    <div class="percentile-label">Projects</div>
+                    <div class="percentile-detail">You: {user_projects}</div>
                 </div>
 
                 <div class="percentile-card">
@@ -3445,39 +3503,37 @@ def generate_percentile_html(benchmarks: dict) -> str:
 
 
 def generate_achievements_html(achievements: list) -> str:
-    """Generate HTML for achievements/badges."""
+    """Generate HTML for achievements/badges with numeric rankings."""
     if not achievements:
         return ""
 
-    # Sort by tier (gold first, then silver, bronze, special)
-    tier_order = {'gold': 0, 'silver': 1, 'bronze': 2, 'special': 3}
-    sorted_achievements = sorted(achievements, key=lambda x: tier_order.get(x.get('tier', 'special'), 99))
-
-    tier_colors = {
-        'gold': 'linear-gradient(135deg, #FFD700, #FFA500)',
-        'silver': 'linear-gradient(135deg, #C0C0C0, #A0A0A0)',
-        'bronze': 'linear-gradient(135deg, #CD7F32, #8B4513)',
-        'special': 'linear-gradient(135deg, var(--neon-purple), var(--neon-pink))',
-    }
-
-    tier_borders = {
-        'gold': 'rgba(255, 215, 0, 0.5)',
-        'silver': 'rgba(192, 192, 192, 0.5)',
-        'bronze': 'rgba(205, 127, 50, 0.5)',
-        'special': 'rgba(139, 92, 246, 0.5)',
-    }
+    # Define rank colors - gradient from top rank to lower
+    def get_rank_color(rank: int) -> tuple[str, str]:
+        """Return (gradient, border) colors based on numeric rank."""
+        if rank <= 3:
+            # Top 3 - gold gradient
+            return ('linear-gradient(135deg, #FFD700, #FFA500)', 'rgba(255, 215, 0, 0.5)')
+        elif rank <= 6:
+            # 4-6 - cyan/blue gradient
+            return ('linear-gradient(135deg, #00d4ff, #0088cc)', 'rgba(0, 212, 255, 0.5)')
+        elif rank <= 10:
+            # 7-10 - purple gradient
+            return ('linear-gradient(135deg, var(--neon-purple), var(--neon-pink))', 'rgba(139, 92, 246, 0.5)')
+        else:
+            # 11+ - silver-ish
+            return ('linear-gradient(135deg, #888, #666)', 'rgba(136, 136, 136, 0.3)')
 
     badges_html = ""
-    for badge in sorted_achievements:
-        tier = badge.get('tier', 'special')
+    for rank, badge in enumerate(achievements, 1):
+        gradient, border = get_rank_color(rank)
         badges_html += f'''
-            <div class="achievement-badge" style="--badge-gradient: {tier_colors.get(tier, tier_colors['special'])}; --badge-border: {tier_borders.get(tier, tier_borders['special'])};">
+            <div class="achievement-badge" style="--badge-gradient: {gradient}; --badge-border: {border};">
+                <div class="badge-rank">#{rank}</div>
                 <div class="badge-icon">{badge.get('icon', '🏆')}</div>
                 <div class="badge-info">
                     <div class="badge-name">{html.escape(badge.get('name', ''))}</div>
                     <div class="badge-desc">{html.escape(badge.get('desc', ''))}</div>
                 </div>
-                <div class="badge-tier">{tier.upper()}</div>
             </div>
         '''
 
@@ -3552,14 +3608,17 @@ def generate_achievements_html(achievements: list) -> str:
                 color: rgba(255, 255, 255, 0.6);
             }}
 
-            .badge-tier {{
+            .badge-rank {{
                 font-family: 'Orbitron', monospace;
-                font-size: 0.65rem;
-                padding: 0.25rem 0.5rem;
-                border-radius: 4px;
+                font-size: 0.9rem;
+                font-weight: bold;
+                padding: 0.4rem 0.6rem;
+                border-radius: 6px;
                 background: var(--badge-gradient);
                 color: black;
-                font-weight: bold;
+                flex-shrink: 0;
+                min-width: 36px;
+                text-align: center;
             }}
         </style>
     '''
@@ -4740,55 +4799,45 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         tokens = format_number(proj.get('tokens', 0))
         cost = format_cost(proj.get('cost', 0))
 
-        # Get tech stack info
-        frameworks = proj.get('frameworks', [])
-        components = proj.get('components', [])
-        category = proj.get('category', '')
-        summary = proj.get('summary', '')
-
-        # Build tech stack display (show top 5 frameworks)
-        tech_tags = []
-        for fw in frameworks[:5]:
-            tech_tags.append(f'<span class="project-tech-tag">{html.escape(fw)}</span>')
-        tech_html = f'<div class="project-tech-stack">{" ".join(tech_tags)}</div>' if tech_tags else ''
-
-        # Component badges (show up to 3)
-        component_icons = {
-            'chrome-extension': '🧩', 'vscode-extension': '💻', 'web-frontend': '🌐',
-            'mobile-app': '📱', 'desktop-app': '🖥️', 'api-server': '⚙️',
-            'graphql-api': '◈', 'websocket-server': '🔌', 'ml-pipeline': '🧠',
-            'data-ingestion': '📥', 'knowledge-graph': '🕸️', 'kubernetes': '☸️',
-            'docker-compose': '🐳', 'ci-cd-pipeline': '🔄', 'cli-tool': '⌨️',
-            'sdk-library': '📚', 'mcp-server': '🔗', 'agent-system': '🤖',
-        }
-        component_tags = []
-        for comp in components[:3]:
-            icon = component_icons.get(comp, '📦')
-            component_tags.append(f'<span class="project-component-tag" title="{html.escape(comp)}">{icon}</span>')
-        component_html = f'<div class="project-components">{" ".join(component_tags)}</div>' if component_tags else ''
-
-        # Category badge
-        category_html = f'<span class="project-category">{html.escape(category)}</span>' if category else ''
-
-        # Summary line
-        summary_html = f'<div class="project-summary">{html.escape(summary)}</div>' if summary else ''
-
-        # Rank badge
-        if i == 0:
-            badge = '🥇'
-        elif i == 1:
-            badge = '🥈'
-        elif i == 2:
-            badge = '🥉'
-        else:
-            badge = f'#{i+1}'
+        # Rank badge - always show numeric ranking
+        badge = f'#{i+1}'
 
         # Git metrics
         has_git = proj.get('has_git_data', False)
         git_only = proj.get('git_only', False)
         git_commits = proj.get('git_commits', 0)
-        git_lines = proj.get('git_net_lines', 0)
+        git_user_commits = proj.get('git_user_commits', 0)
+        git_lines_changed = proj.get('git_lines_changed', 0)
+        git_net_lines = proj.get('git_net_lines', 0)
+        git_languages = proj.get('git_languages', [])
         git_lang = proj.get('git_primary_language', '')
+        git_last_commit = proj.get('git_last_commit', '')
+
+        # Format last commit as relative time
+        def format_relative_time(iso_date):
+            if not iso_date:
+                return ''
+            try:
+                from datetime import datetime
+                commit_date = datetime.fromisoformat(iso_date.replace('Z', '+00:00'))
+                now = datetime.now(commit_date.tzinfo) if commit_date.tzinfo else datetime.now()
+                delta = now - commit_date
+                if delta.days == 0:
+                    return 'today'
+                elif delta.days == 1:
+                    return 'yesterday'
+                elif delta.days < 7:
+                    return f'{delta.days}d ago'
+                elif delta.days < 30:
+                    return f'{delta.days // 7}w ago'
+                elif delta.days < 365:
+                    return f'{delta.days // 30}mo ago'
+                else:
+                    return f'{delta.days // 365}y ago'
+            except:
+                return ''
+
+        last_commit_str = format_relative_time(git_last_commit)
 
         # Source indicator
         if has_git and sessions > 0:
@@ -4798,13 +4847,28 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
         else:
             source_badge = '<span class="source-badge source-claude" title="Claude only">💬</span>'
 
-        # Git stats line
+        # Enhanced git stats line
         if has_git and git_commits > 0:
+            # Show contribution percentage if user has commits
+            contrib_pct = f" ({100 * git_user_commits // git_commits}% yours)" if git_commits > 0 and git_user_commits > 0 else ""
+
+            # Format languages - show up to 3
+            langs_html = ''
+            if git_languages:
+                lang_tags = [f'<span class="git-lang">{html.escape(lang)}</span>' for lang in git_languages[:3]]
+                langs_html = f'<span class="git-langs">{" ".join(lang_tags)}</span>'
+            elif git_lang:
+                langs_html = f'<span class="git-lang">{html.escape(git_lang)}</span>'
+
+            # Last commit indicator
+            last_commit_html = f'<span class="git-recent" title="Last commit">{last_commit_str}</span>' if last_commit_str else ''
+
             git_stats_html = f'''
                 <div class="project-git-stats">
-                    <span title="Git commits">📝 {git_commits} commits</span>
-                    <span title="Net lines of code">📊 {format_number(git_lines)} lines</span>
-                    {f'<span title="Primary language">💻 {html.escape(git_lang)}</span>' if git_lang else ''}
+                    <span title="Git commits{contrib_pct}">📝 {git_commits} commits{contrib_pct}</span>
+                    <span title="Lines changed">±{format_number(git_lines_changed)}</span>
+                    {last_commit_html}
+                    {langs_html}
                 </div>
             '''
         else:
@@ -4828,13 +4892,9 @@ def generate_top_projects_html(projects: list, project_groups: dict = None, smar
                 <div class="project-rank">{badge}</div>
                 <div class="project-header">
                     <div class="project-name">{source_badge} {name}</div>
-                    {category_html}
-                    {component_html}
                 </div>
-                {summary_html}
                 {claude_stats_html}
                 {git_stats_html}
-                {tech_html}
             </div>
         ''')
 

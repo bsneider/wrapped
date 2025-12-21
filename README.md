@@ -72,28 +72,28 @@ git clone https://github.com/anthropics/claude-wrapped.git
 cd claude-wrapped
 
 # Run it (opens in browser automatically!)
-python main.py -o wrapped.html
+uv run main.py -o wrapped.html
 ```
 
-That's it! **Zero dependencies** - pure Python 3.9+.
+That's it! Uses [uv](https://docs.astral.sh/uv/) for fast, reliable Python execution.
 
 ## 📖 Usage
 
 ```bash
 # Generate and auto-open in browser
-python main.py -o wrapped.html
+uv run main.py -o wrapped.html
 
 # Skip auto-open
-python main.py -o wrapped.html --no-open
+uv run main.py -o wrapped.html --no-open
 
 # Get raw JSON data
-python main.py --json > data.json
+uv run main.py --json > data.json
 
 # Custom Claude directory
-python main.py -d /path/to/.claude -o report.html
+uv run main.py -d /path/to/.claude -o report.html
 
 # Quiet mode (no banner)
-python main.py -q -o report.html
+uv run main.py -q -o report.html
 ```
 
 ### Command Line Options
@@ -126,10 +126,10 @@ By default, Claude Wrapped sends **anonymous, aggregated metrics** to help impro
 
 ```bash
 # One-time opt-out
-python main.py -o wrapped.html --no-telemetry
+uv run main.py -o wrapped.html --no-telemetry
 
 # See what would be sent
-python main.py -o wrapped.html --telemetry-preview
+uv run main.py -o wrapped.html --telemetry-preview
 
 # Permanent opt-out (add to config)
 echo '{"telemetry": false}' > ~/.claude-wrapped/config.json

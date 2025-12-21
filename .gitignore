@@ -14,3 +14,5 @@ cloudflare/.dev.vars
 cloudflare/wrangler.toml
 cloudflare/.wrangler/
 cloudflare/node_modules/
+wrapped_report.html
+wrapped.html
