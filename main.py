@@ -588,44 +588,91 @@ Easter Eggs:
     total_cost = json_data.get('total_cost_usd', 0)
     total_tokens = (json_data.get('total_input_tokens', 0) or 0) + (json_data.get('total_output_tokens', 0) or 0)
     unique_projects = json_data.get('unique_projects', 0)
+    longest_streak = json_data.get('longest_streak_days', 0)
+    peak_hour = json_data.get('peak_hour', 12)
+    weekend_ratio = json_data.get('weekend_ratio', 0)
+    tool_freq = json_data.get('tool_frequency', {})
 
-    # Get percentiles from benchmarks
-    session_pct = benchmarks.get('session_percentile', 50)
-    cost_pct = benchmarks.get('cost_percentile', 50)
-    token_pct = benchmarks.get('token_percentile', 50)
-    projects_pct = benchmarks.get('projects_percentile', 50)
+    # Check if we have benchmark data for comparative achievements
+    has_benchmarks = bool(benchmarks.get('session_percentile'))
 
-    # Session ranking
-    if session_pct >= 90:
-        achievements.append({'id': 'sessions_top10', 'name': 'Power User', 'icon': '⚡', 'desc': f'Top 10% by sessions ({total_sessions:,})'})
-    elif session_pct >= 75:
-        achievements.append({'id': 'sessions_top25', 'name': 'Heavy User', 'icon': '🎯', 'desc': f'Top 25% by sessions ({total_sessions:,})'})
-    elif session_pct >= 50:
-        achievements.append({'id': 'sessions_top50', 'name': 'Active User', 'icon': '📊', 'desc': f'Top 50% by sessions ({total_sessions:,})'})
+    if has_benchmarks:
+        # Get percentiles from benchmarks
+        session_pct = benchmarks.get('session_percentile', 50)
+        cost_pct = benchmarks.get('cost_percentile', 50)
+        token_pct = benchmarks.get('token_percentile', 50)
+        projects_pct = benchmarks.get('projects_percentile', 50)
 
-    # Token ranking
-    if token_pct >= 90:
-        achievements.append({'id': 'tokens_top10', 'name': 'Token Titan', 'icon': '🏆', 'desc': f'Top 10% by tokens'})
-    elif token_pct >= 75:
-        achievements.append({'id': 'tokens_top25', 'name': 'Token Master', 'icon': '🔤', 'desc': f'Top 25% by tokens'})
+        # Session ranking
+        if session_pct >= 90:
+            achievements.append({'id': 'sessions_top10', 'name': 'Power User', 'icon': '⚡', 'desc': f'Top 10% by sessions ({total_sessions:,})'})
+        elif session_pct >= 75:
+            achievements.append({'id': 'sessions_top25', 'name': 'Heavy User', 'icon': '🎯', 'desc': f'Top 25% by sessions ({total_sessions:,})'})
+        elif session_pct >= 50:
+            achievements.append({'id': 'sessions_top50', 'name': 'Active User', 'icon': '📊', 'desc': f'Top 50% by sessions ({total_sessions:,})'})
 
-    # Project diversity ranking
-    if projects_pct >= 90:
-        achievements.append({'id': 'projects_top10', 'name': 'Project Polyglot', 'icon': '🗂️', 'desc': f'Top 10% by projects ({unique_projects})'})
-    elif projects_pct >= 75:
-        achievements.append({'id': 'projects_top25', 'name': 'Multi-tasker', 'icon': '📁', 'desc': f'Top 25% by projects ({unique_projects})'})
+        # Token ranking
+        if token_pct >= 90:
+            achievements.append({'id': 'tokens_top10', 'name': 'Token Titan', 'icon': '🏆', 'desc': f'Top 10% by tokens'})
+        elif token_pct >= 75:
+            achievements.append({'id': 'tokens_top25', 'name': 'Token Master', 'icon': '🔤', 'desc': f'Top 25% by tokens'})
 
-    # Cost ranking (high spending = dedicated)
-    if cost_pct >= 90:
-        achievements.append({'id': 'cost_top10', 'name': 'Big Spender', 'icon': '💸', 'desc': f'Top 10% by investment (${total_cost:.0f})'})
-    elif cost_pct >= 75:
-        achievements.append({'id': 'cost_top25', 'name': 'Committed', 'icon': '💰', 'desc': f'Top 25% by investment (${total_cost:.0f})'})
+        # Project diversity ranking
+        if projects_pct >= 90:
+            achievements.append({'id': 'projects_top10', 'name': 'Project Polyglot', 'icon': '🗂️', 'desc': f'Top 10% by projects ({unique_projects})'})
+        elif projects_pct >= 75:
+            achievements.append({'id': 'projects_top25', 'name': 'Multi-tasker', 'icon': '📁', 'desc': f'Top 25% by projects ({unique_projects})'})
+
+        # Cost ranking (high spending = dedicated)
+        if cost_pct >= 90:
+            achievements.append({'id': 'cost_top10', 'name': 'Big Spender', 'icon': '💸', 'desc': f'Top 10% by investment (${total_cost:.0f})'})
+        elif cost_pct >= 75:
+            achievements.append({'id': 'cost_top25', 'name': 'Committed', 'icon': '💰', 'desc': f'Top 25% by investment (${total_cost:.0f})'})
+    else:
+        # Fallback: milestone-based achievements when benchmarks unavailable
+        if total_sessions >= 1000:
+            achievements.append({'id': 'sessions_1k', 'name': 'Power User', 'icon': '⚡', 'desc': f'{total_sessions:,} sessions'})
+        elif total_sessions >= 500:
+            achievements.append({'id': 'sessions_500', 'name': 'Heavy User', 'icon': '🎯', 'desc': f'{total_sessions:,} sessions'})
+        elif total_sessions >= 100:
+            achievements.append({'id': 'sessions_100', 'name': 'Active User', 'icon': '📊', 'desc': f'{total_sessions:,} sessions'})
+
+        if total_tokens >= 10_000_000:
+            achievements.append({'id': 'tokens_10m', 'name': 'Token Titan', 'icon': '🏆', 'desc': '10M+ tokens'})
+        elif total_tokens >= 1_000_000:
+            achievements.append({'id': 'tokens_1m', 'name': 'Token Master', 'icon': '🔤', 'desc': '1M+ tokens'})
+
+        if total_cost >= 500:
+            achievements.append({'id': 'cost_500', 'name': 'Big Spender', 'icon': '💸', 'desc': f'${total_cost:.0f} invested'})
+        elif total_cost >= 100:
+            achievements.append({'id': 'cost_100', 'name': 'Committed', 'icon': '💰', 'desc': f'${total_cost:.0f} invested'})
+
+    # Non-comparative achievements (always available)
+    if longest_streak >= 30:
+        achievements.append({'id': 'streak_30', 'name': 'Month Warrior', 'icon': '🔥', 'desc': f'{longest_streak} day streak'})
+    elif longest_streak >= 14:
+        achievements.append({'id': 'streak_14', 'name': 'Two Week Streak', 'icon': '📅', 'desc': f'{longest_streak} day streak'})
+    elif longest_streak >= 7:
+        achievements.append({'id': 'streak_7', 'name': 'Week Warrior', 'icon': '🗓️', 'desc': f'{longest_streak} day streak'})
+
+    if peak_hour >= 22 or peak_hour <= 4:
+        achievements.append({'id': 'night_owl', 'name': 'Night Owl', 'icon': '🦉', 'desc': 'Peak coding after 10pm'})
+    elif peak_hour >= 5 and peak_hour <= 8:
+        achievements.append({'id': 'early_bird', 'name': 'Early Bird', 'icon': '🐦', 'desc': 'Peak coding before 9am'})
+
+    if weekend_ratio and weekend_ratio > 0.4:
+        achievements.append({'id': 'weekend_warrior', 'name': 'Weekend Warrior', 'icon': '⚔️', 'desc': '40%+ weekend coding'})
+
+    if tool_freq.get('Task', 0) >= 50:
+        achievements.append({'id': 'delegator', 'name': 'The Delegator', 'icon': '👥', 'desc': f'{tool_freq.get("Task", 0)} Task tool uses'})
+    if tool_freq.get('Bash', 0) >= 500:
+        achievements.append({'id': 'shell_master', 'name': 'Shell Master', 'icon': '💻', 'desc': f'{tool_freq.get("Bash", 0):,} Bash commands'})
 
     # Efficiency: high tokens per dollar spent
     if total_cost > 0:
         tokens_per_dollar = total_tokens / total_cost
         if tokens_per_dollar > 50000:  # >50K tokens per dollar
-            achievements.append({'id': 'efficient', 'name': 'Efficiency Expert', 'icon': '💡', 'desc': f'{tokens_per_dollar/1000:.0f}K tokens/$ spent'})
+            achievements.append({'id': 'efficient', 'name': 'Efficiency Expert', 'icon': '💡', 'desc': f'{tokens_per_dollar/1000:.0f}K tokens/$'})
 
     # First wrapped (everyone gets this)
     achievements.append({'id': 'first_wrapped', 'name': 'Wrapped 2025', 'icon': '🎁', 'desc': 'Generated your first wrapped'})
